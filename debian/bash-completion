@@ -1,0 +1,348 @@
+
+_clara()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    SUBCOMMANDS="build enc images ipmi p2p repo slurm"
+    DISTRIBUTIONS="calibre7 calibre8 calibre9"
+
+    if [[ $COMP_CWORD -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "$SUBCOMMANDS help --help --version" -- $cur) )
+        return 0
+    fi
+
+    case "${COMP_WORDS[1]}" in
+        build)
+            _clara_build
+            ;;
+        enc)
+            _clara_enc
+            ;;
+        images)
+            _clara_images
+            ;;
+        ipmi)
+            _clara_ipmi
+            ;;
+        p2p)
+            _clara_p2p
+            ;;
+        repo)
+            _clara_repo
+            ;;
+        slurm)
+            _clara_slurm
+            ;;
+        help)
+            _clara_help
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+}
+
+###############################################################################
+_clara_help()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "$SUBCOMMANDS" -- $cur) )
+        return 0
+    fi
+}
+
+###############################################################################
+_clara_build()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "source repo" -- $cur) )
+    else
+        _clara_build_distribution
+    fi
+}
+
+_clara_build_distribution()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 3 ]]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS" -- $cur) )
+    else
+       case ${COMP_WORDS[2]} in
+            source)
+                 _filedir
+                ;;
+            repo)
+                _clara_build_repo
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+    fi
+}
+
+_clara_build_repo()
+{
+    if [[ $COMP_CWORD -eq 4 ]]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS" -- $cur) )
+    else
+        return 0
+    fi
+}
+
+###############################################################################
+_clara_enc()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "show edit encode decode" -- $cur) )
+    else
+        _filedir
+    fi
+}
+
+###############################################################################
+_clara_images()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    SC_IMAGES="create unpack repack edit initrd"
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "$SC_IMAGES" -- $cur) )
+    else
+        case ${COMP_WORDS[2]} in
+            unpack)
+                COMPREPLY=( $(compgen -W "$DISTRIBUTIONS --image=" -- $cur) )
+                ;;
+            repack)
+                _clara_images_repack
+                ;;
+            *)
+                _clara_images_distribution
+                ;;
+        esac
+
+    fi
+}
+
+_clara_images_distribution()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 3 ]]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS" -- $cur) )
+    else
+       case ${COMP_WORDS[2]} in
+            create)
+                 _clara_images_create
+                ;;
+            initrd)
+                _clara_images_initrd
+                ;;
+            edit)
+                _clara_images_edit
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+    fi
+}
+
+# clara images create <dist> [<image>] [--keep-chroot-dir]
+_clara_images_create()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [ $COMP_CWORD -ge 3 ]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS" -- $cur) )
+    else
+          _clara_images_create
+    fi
+
+    if [ $COMP_CWORD -ge 4 ]; then
+        COMPREPLY=( $(compgen -W "--keep-chroot-dir" -- $cur) )
+    else
+          _clara_images_create
+    fi
+
+    if [ $COMP_CWORD -ge 5 ]; then
+        _filedir
+    fi
+}
+
+# clara images edit <dist> [<image>]
+ _clara_images_edit()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [ $COMP_CWORD -eq 3 ]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS" -- $cur) )
+    else
+        _filedir
+    fi
+}
+
+# clara images repack <directory> ( <dist> | --image=<path> )
+_clara_images_repack()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [ $COMP_CWORD -eq 3 ]; then
+        COMPREPLY=( $( compgen -o dirnames -- $cur) )
+    else
+         _clara_images_repack_final
+    fi
+}
+
+_clara_images_repack_final()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [ $COMP_CWORD -eq 4 ]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS --image=" -- $cur) )
+    fi
+}
+
+
+# clara images initrd <dist> [--output=<dirpath>]
+_clara_images_initrd()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [ $COMP_CWORD -ge 3 ]; then
+        COMPREPLY=( $( compgen -W '--output= ' -- $cur) )
+    fi
+}
+
+###############################################################################
+# NOTE: we don't have bash completion for the reverse option
+_clara_ipmi()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    SC_IPMI="connect deconnect on off reboot status setpwd getmac pxe disk ping blink immdhcp bios reset"
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "$SC_IPMI" -- $cur) )
+    else
+        COMPREPLY=( $(compgen -A hostname ${cur}) )
+    fi
+}
+
+###############################################################################
+_clara_p2p()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    SC_P2P="status restart mktorrent"
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "$SC_P2P" -- $cur) )
+    else
+        case ${COMP_WORDS[2]} in
+            mktorrent)
+                _clara_p2p_mktorrent
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+    fi
+}
+
+# clara p2p mktorrent <dist> [--image=<path>]
+_clara_p2p_mktorrent()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [ $COMP_CWORD -eq 3 ]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS" -- $cur) )
+    fi
+
+    if [ $COMP_CWORD -eq 4 ]; then
+        COMPREPLY=( $(compgen -W "--image=" -- $cur) )
+    fi
+}
+
+###############################################################################
+
+_clara_repo()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "key init sync add del list" -- $cur) )
+    else
+        case ${COMP_WORDS[2]} in
+            key)
+                return 0
+                ;;
+            sync)
+                _clara_repo_sync
+                ;;
+            *)
+                _clara_repo_distribution
+                ;;
+        esac
+    fi
+}
+
+_clara_repo_distribution()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 3 ]]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS" -- $cur) )
+    else
+        return 0
+    fi
+}
+
+_clara_repo_sync()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [ $COMP_CWORD -ge 4 ]; then
+        COMPREPLY=( $(compgen -W "$DISTRIBUTIONS all" -- $cur) )
+    fi
+}
+
+###############################################################################
+# TODO: pending clara slurm <cmd> <subject> [<op>] [<spec>...]
+_clara_slurm()
+{
+    local cur=${COMP_WORDS[COMP_CWORD]}
+
+    if [[ $COMP_CWORD -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "health resume drain down job node steps frontend partition reservation block submp" -- $cur) )
+    else
+        case ${COMP_WORDS[2]} in
+            health)
+                COMPREPLY=( $(compgen -A hostname ${cur}) )
+                ;;
+            resume)
+                COMPREPLY=( $(compgen -A hostname ${cur}) )
+                ;;
+            drain)
+                COMPREPLY=( $(compgen -A hostname ${cur}) )
+                ;;
+            down)
+                COMPREPLY=( $(compgen -A hostname ${cur}) )
+                ;;
+            # TODO job node steps frontend partition reservation block submp
+            *)
+                COMPREPLY=( $( compgen -o filenames -G "$cur*" ) )
+                ;;
+        esac
+    fi
+}
+
+###############################################################################
+
+complete -F _clara clara
+
