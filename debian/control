@@ -1,12 +1,14 @@
 Source: clara
 Section: net
 Priority: optional
-Maintainer: Ana Guerrero <ana-externe.guerrero@edf.fr>
+Maintainer: Scibian Project <packaging@scibian.org>
 Build-Depends: debhelper (>= 8), python-all, python-setuptools, pandoc, bash-completion,
  texlive-latex-base, texlive-latex-extra, lmodern, texlive-fonts-recommended
 Standards-Version: 3.9.1
 X-Python-Version: >= 2.7
 Homepage: https://github.com/edf-hpc/clara
+Vcs-Git: https://github.com/scibian/clara.git
+Vcs-Browser: https://github.com/scibian/clara
 
 Package: clara
 Architecture: all

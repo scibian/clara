@@ -4,11 +4,15 @@ This work was packaged for Debian by:
 
 It was downloaded from: https://github.com/edf-hpc/clara
 
-Copyright:
 
-    Copyright (C) 2014-2016 EDF SA
+Files: debian/*
+Copyright: 2014-2016 EDF <http://www.edf.fr>
+           2017 Scibian Project <legal@scibian.org>
+License: CeCILL-C
 
-License:
+Files: *
+Copyright: (C) 2014-2016 EDF SA
+License: CeCILL-C
 
 ---------------------------------------------------------------------------
 
