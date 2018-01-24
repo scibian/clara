@@ -1,3 +1,9 @@
+clara (0.20180123-0sci8u2) scibian8; urgency=medium
+
+  * Remove automatic dependency to python-libvirt on clara-core package
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Wed, 24 Jan 2018 16:30:09 +0100
+
 clara (0.20180123-0sci8u1) scibian8; urgency=medium
 
   * Convert to quilt package as Clara just became an upstream code base
