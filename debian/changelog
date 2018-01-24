@@ -1,3 +1,15 @@
+clara (0.20180123-0sci8u1) scibian8; urgency=medium
+
+  * Convert to quilt package as Clara just became an upstream code base
+  * New upstream release 0.20180123
+  * Use upstream bash-completion file
+  * Split clara package into multiple packages:
+    * clara-core: clara core engine
+    * clara-plugin-*: each plugin with its own dedicated package
+    * clara: metapackage for all of the above
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Tue, 23 Jan 2018 17:09:54 +0100
+
 clara (0.20171114sci8u1) scibian8; urgency=medium
 
   * Scibian8 rebuild.
