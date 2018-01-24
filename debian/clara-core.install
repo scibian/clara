@@ -1,0 +1,5 @@
+usr/bin/clara
+usr/lib/*/dist-packages/clara/*.py
+usr/lib/*/dist-packages/clara/plugins/__init__.py
+usr/lib/*/dist-packages/*.egg-info
+example-conf/config.ini etc/clara

@@ -1,6 +1,5 @@
-example-conf/config.ini etc/clara
-example-conf/repos.ini etc/clara
+usr/lib/*/dist-packages/clara/plugins/clara_virt.py
+usr/lib/*/dist-packages/clara/virt
 example-conf/virt.ini etc/clara
-example-conf/templates etc/clara
 example-conf/templates/vm/default.xml etc/clara/templates/vm
 example-conf/templates/volume/default.xml etc/clara/templates/volume
