@@ -2,8 +2,16 @@ Source: clara
 Section: net
 Priority: optional
 Maintainer: Scibian Project <packaging@scibian.org>
-Build-Depends: debhelper (>= 8), python-all, python-setuptools, pandoc, bash-completion,
- texlive-latex-base, texlive-latex-extra, lmodern, texlive-fonts-recommended
+Build-Depends:
+ debhelper (>= 8),
+ python-all,
+ python-setuptools,
+ pandoc,
+ bash-completion,
+ texlive-latex-base,
+ texlive-latex-extra,
+ lmodern,
+ texlive-fonts-recommended
 Standards-Version: 3.9.1
 X-Python-Version: >= 2.7
 Homepage: https://github.com/edf-hpc/clara
