@@ -38,7 +38,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  cowbuilder
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
@@ -52,7 +52,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  debootstrap,
  squashfs-tools
 Breaks: clara (<< 0.20180123)
@@ -67,7 +67,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Description: Cluster administration tools enc plugin
@@ -80,7 +80,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  debootstrap,
  squashfs-tools,
  python-paramiko
@@ -96,7 +96,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  fping,
  ipmitool,
  sshpass
@@ -112,7 +112,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  mktorrent,
  python-paramiko,
 Breaks: clara (<< 0.20180123)
@@ -127,7 +127,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  reprepro,
  gnupg,
  debmirror,
@@ -144,7 +144,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  slurm-client
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
@@ -158,7 +158,7 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
+ clara-core (= ${source:Version}),
  python-libvirt,
  python-jinja2,
  python-humanize
@@ -174,16 +174,16 @@ Architecture: all
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- clara-core (= ${binary:Version}),
- clara-plugin-build (= ${binary:Version}),
- clara-plugin-chroot (= ${binary:Version}),
- clara-plugin-enc (= ${binary:Version}),
- clara-plugin-images (= ${binary:Version}),
- clara-plugin-ipmi (= ${binary:Version}),
- clara-plugin-p2p (= ${binary:Version}),
- clara-plugin-repo (= ${binary:Version}),
- clara-plugin-slurm (= ${binary:Version}),
- clara-plugin-virt (= ${binary:Version})
+ clara-core (= ${source:Version}),
+ clara-plugin-build (= ${source:Version}),
+ clara-plugin-chroot (= ${source:Version}),
+ clara-plugin-enc (= ${source:Version}),
+ clara-plugin-images (= ${source:Version}),
+ clara-plugin-ipmi (= ${source:Version}),
+ clara-plugin-p2p (= ${source:Version}),
+ clara-plugin-repo (= ${source:Version}),
+ clara-plugin-slurm (= ${source:Version}),
+ clara-plugin-virt (= ${source:Version})
 Description: Cluster administration tools metapackage
  Clara is a set of tools to help administering and installing clusters.
  .
