@@ -23,7 +23,6 @@ Architecture: all
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  ${python:Depends},
  python-docopt,
@@ -36,7 +35,6 @@ Description: Cluster administration tools core engine
 Package: clara-plugin-build
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  cowbuilder
@@ -50,7 +48,6 @@ Description: Cluster administration tools build plugin
 Package: clara-plugin-chroot
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  debootstrap,
@@ -65,7 +62,6 @@ Description: Cluster administration tools chroot plugin
 Package: clara-plugin-enc
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
 Breaks: clara (<< 0.20180123)
@@ -78,7 +74,6 @@ Description: Cluster administration tools enc plugin
 Package: clara-plugin-images
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  debootstrap,
@@ -94,7 +89,6 @@ Description: Cluster administration tools images plugin
 Package: clara-plugin-ipmi
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  fping,
@@ -110,7 +104,6 @@ Description: Cluster administration tools ipmi plugin
 Package: clara-plugin-p2p
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  mktorrent,
@@ -125,7 +118,6 @@ Description: Cluster administration tools p2p plugin
 Package: clara-plugin-repo
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  reprepro,
@@ -142,7 +134,6 @@ Description: Cluster administration tools repo plugin
 Package: clara-plugin-slurm
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  slurm-client
@@ -156,7 +147,6 @@ Description: Cluster administration tools slurm plugin
 Package: clara-plugin-virt
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  python-libvirt,
@@ -172,7 +162,6 @@ Description: Cluster administration tools virt plugin
 Package: clara
 Architecture: all
 Depends:
- ${shlibs:Depends},
  ${misc:Depends},
  clara-core (= ${source:Version}),
  clara-plugin-build (= ${source:Version}),
