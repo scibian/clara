@@ -43,6 +43,8 @@ import sys
 import ClusterShell.NodeSet
 import ClusterShell.Task
 
+import distutils
+from distutils import util
 
 class Conf:
     """Class which contains runtime variables"""
@@ -65,7 +67,16 @@ def clush(hosts, cmds):
         logging.info("{0} {1}".format(ClusterShell.NodeSet.NodeSet.fromlist(nodes), output))
 
 
-def run(cmd):
+def run(cmd, exit_on_error=True):
+    """Run a command and check its return code.
+
+       Arguments:
+       * cmd: list of command arguments
+       * exit_on_error: boolean to control behaviour on command error (ie.
+           return code != 0). If true (default) clara exits, otherwise the
+           function raises an RuntimeError exception.
+     """
+
     logging.debug("utils/run: {0}".format(" ".join(cmd)))
 
     try:
@@ -76,7 +87,11 @@ def run(cmd):
                       You were trying to run:\n {0}".format(" ".join(cmd)))
 
     if retcode != 0:
-        clara_exit(' '.join(cmd))
+        if exit_on_error:
+            clara_exit(' '.join(cmd))
+        else:
+            raise RuntimeError("Error {0} while running cmd: {1}" \
+                               .format(retcode, ' '.join(cmd)))
 
 
 def get_from_config(section, value, dist=''):
@@ -121,6 +136,12 @@ def get_from_config_or(section, value, dist='', default=''):
     except:
         return default
 
+def get_bool_from_config_or(section, value, dist='', default=False):
+    """ Read a boolean value from config.ini and return it"""
+    string_value = get_from_config_or(section, value, dist, None)
+    if string_value is None:
+        return default
+    return distutils.util.strtobool(string_value) == 1
 
 def has_config_value(section, value, dist=''):
     """Return True if value is found in config.ini"""
