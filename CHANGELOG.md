@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20190116] - 2019-01-16
+
+### Added
+- chroot: add gpg\_check and gpg\_keyring parameters
+- images: add gpg\_check and gpg\_keyring parameters
+- utils: Add get\_bool\_from\_config\_or function
+- utils: add exit\_on\_error optional argument to run() function for raising
+  RuntimeError in case of cmd non-zero exit code.
+- images: add tmp\_dir option to control tmp build directory (fix #92)
+
+### Changed
+- chroot: Install files before installing packages
+- images: Setup files before installing packages
+- chroot: Set owner of apt keys to support \_apt (scibian9)
+
+### Fixed
+- ipmi: fallback to ipmitool if conman client fails (fix #78)
+- images: apt clean before renaming previous image file (fix #77)
+- repo: avoid error with unknown variable when changesfile not found in jenkins
+
 ## [0.20180123] - 2018-01-23
 
 ### Added

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 ##############################################################################
-#  Copyright (C) 2014-2017 EDF SA                                            #
+#  Copyright (C) 2014-2018 EDF SA                                            #
 #                                                                            #
 #  This file is part of Clara                                                #
 #                                                                            #
@@ -57,7 +57,7 @@ import tempfile
 import time
 
 import docopt
-from clara.utils import clara_exit, run, get_from_config, get_from_config_or, has_config_value, conf
+from clara.utils import clara_exit, run, get_from_config, get_from_config_or, has_config_value, conf, get_bool_from_config_or
 from clara import sftp
 
 def run_chroot(cmd):
@@ -88,10 +88,22 @@ def base_install():
     debiandist = get_from_config("images", "debiandist", dist)
     debmirror = get_from_config("images", "debmirror", dist)
 
-    if conf.ddebug:
-        run(["debootstrap", "--verbose", debiandist, work_dir, debmirror])
+    # Get GPG options
+    gpg_check = get_bool_from_config_or("images", "gpg_check", dist, True)
+    gpg_keyring = get_from_config_or("images", "gpg_keyring", dist, None)
+
+    cmd = ["debootstrap", debiandist, work_dir, debmirror]
+
+    if gpg_check:
+        if gpg_keyring is not None:
+            cmd.insert(1, "--keyring=%s" % gpg_keyring)
     else:
-        run(["debootstrap", debiandist, work_dir, debmirror])
+        cmd.insert(1, "--no-check-gpg")
+
+    if conf.ddebug:
+        cmd.insert(1, "--verbose")
+
+    run(cmd)
 
     # Prevent services from starting automatically
     policy_rc = work_dir + "/usr/sbin/policy-rc.d"
@@ -310,12 +322,14 @@ def genimg(image):
             os.makedirs(path_to_image)
         squashfs_file = image
 
+    logging.info("Cleaning APT cache in working directory")
+    run_chroot(["chroot", work_dir, "apt-get", "clean"])
+
     if os.path.isfile(squashfs_file):
         os.rename(squashfs_file, squashfs_file + ".old")
         logging.info("Previous image renamed to {0}.".format(squashfs_file + ".old"))
 
     logging.info("Creating image at {0}".format(squashfs_file))
-    run_chroot(["chroot", work_dir, "apt-get", "clean"])
     if conf.ddebug:
         run(["mksquashfs", work_dir, squashfs_file, "-no-exports", "-noappend", "-info"])
     else:
@@ -341,7 +355,7 @@ def extract_image(image):
         squashfs_file = image
 
     if not os.path.isfile(squashfs_file):
-        clara_exit("The image {0} does not exist!".format(squashfs_file))
+        clara_exit("{0} does not exist!".format(squashfs_file))
 
     extract_dir = tempfile.mkdtemp(prefix="tmpClara")
     logging.info("Extracting {0} to {1} ...".format(squashfs_file, extract_dir))
@@ -365,7 +379,7 @@ def geninitrd(path):
 
     squashfs_file = get_from_config("images", "trg_img", dist)
     if not os.path.isfile(squashfs_file):
-        clara_exit("The image {0} does not exist!".format(squashfs_file))
+        clara_exit("{0} does not exist!".format(squashfs_file))
 
     if conf.ddebug:
         run(["unsquashfs", "-li", "-f", "-d", work_dir, squashfs_file])
@@ -425,7 +439,7 @@ def edit(image):
         squashfs_file = image
 
     if not os.path.isfile(squashfs_file):
-        clara_exit("The image file {0} doesn't exist.".format(squashfs_file))
+        clara_exit("{0} doesn't exist.".format(squashfs_file))
 
     # Extract the image.
     logging.info("Extracting {0} to {1} ...".format(squashfs_file, work_dir))
@@ -468,12 +482,7 @@ def main():
     logging.debug(sys.argv)
     dargs = docopt.docopt(__doc__)
 
-    global work_dir, keep_chroot_dir
-    if dargs['repack']:
-        work_dir = dargs['<directory>']
-    else:
-        work_dir = tempfile.mkdtemp(prefix="tmpClara")
-
+    global keep_chroot_dir
     keep_chroot_dir = False
     # Not executed in the following cases
     # - the program dies because of a signal
@@ -488,12 +497,19 @@ def main():
     if dist not in get_from_config("common", "allowed_distributions"):
         clara_exit("{0} is not a know distribution".format(dist))
 
+    global work_dir
+    if dargs['repack']:
+        work_dir = dargs['<directory>']
+    else:
+        tmpdir = get_from_config_or("images", "tmp_dir", dist, "/tmp")
+        work_dir = tempfile.mkdtemp(prefix="tmpClara", dir=tmpdir)
+
     if dargs['create']:
         if dargs["--keep-chroot-dir"]:
             keep_chroot_dir = True
         base_install()
-        system_install()
         install_files()
+        system_install()
         remove_files()
         run_script_post_creation()
         genimg(dargs['<image>'])

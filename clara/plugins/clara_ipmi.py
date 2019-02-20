@@ -52,6 +52,7 @@ Usage:
     clara ipmi [--p=<level>] sellist <hostlist>
     clara ipmi [--p=<level>] selclear <hostlist>
     clara ipmi ssh <hostlist> <command>
+    clara ipmi [--p=<level>] command <hostlist> <command>...
     clara ipmi -h | --help
 Alternative:
     clara ipmi <host> connect [-jf]
@@ -70,6 +71,7 @@ Alternative:
     clara ipmi [--p=<level>] <hostlist> sellist
     clara ipmi [--p=<level>] <hostlist> selclear
     clara ipmi <hostlist> ssh <command>
+    clara ipmi [--p=<level>] <hostlist> command <command>...
 """
 
 import errno
@@ -150,7 +152,7 @@ def getmac(hosts):
         # The data we want is in line 15
         lines = proc.stdout.readlines()
         if (len(lines) < 14):
-            clara_exit("The host {0} can't be reached".format(host))
+            clara_exit("Host {0} can't be reached".format(host))
         full_mac = lines[14].split(":")[1].strip().upper()
         mac_address1 = "{0}:{1}:{2}:{3}:{4}:{5}".format(full_mac[0:2],
                                                         full_mac[2:4],
@@ -194,10 +196,12 @@ def do_connect(host, j=False, f=False):
         logging.debug("The host is an IP adddres: {0}. Using ipmitool without conman.".format(host))
         do_connect_ipmi(host)
     else:
-        conmand = get_from_config("ipmi", "conmand")
+        conmand = get_from_config_or("ipmi", "conmand", '')
         port = int(get_from_config("ipmi", "port"))
         if (len(conmand) == 0):
-            clara_exit("You must set the paramenter 'conmand' in the configuration file")
+            do_connect_ipmi(host)
+            return
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.connect((conmand, port))
@@ -209,9 +213,12 @@ def do_connect(host, j=False, f=False):
             if f:
                 cmd = cmd + ["-f"]
             cmd = cmd + ["-d", conmand, host]
-            run(cmd)
+            run(cmd, exit_on_error=False)
         except socket.error as e:
             logging.debug("Conman not running. Message on connect: Errno {0} - {1}".format(e.errno, e.strerror))
+            do_connect_ipmi(host)
+        except RuntimeError as e:
+            logging.warning("Conman failed, fallback to ipmitool")
             do_connect_ipmi(host)
 
         s.close()
@@ -252,12 +259,12 @@ def main():
     dargs = docopt.docopt(__doc__)
 
     global parallel
-    # Read the value from the config file and use 1 if it hasn't been set
-    if has_config_value("ipmi", "parallel"):
-        parallel = int(get_from_config("ipmi", "parallel"))
-    elif dargs['--p'] is not None and dargs['--p'].isdigit():
-        # Use the value provided by the user in the command line
+    # Use the value provided by the user in the command line
+    if dargs['--p'] is not None and dargs['--p'].isdigit():
         parallel = int(dargs['--p'])
+    # Read the value from the config file and use 1 if it hasn't been set
+    elif has_config_value("ipmi", "parallel"):
+        parallel = int(get_from_config("ipmi", "parallel"))
     else:
         logging.debug("parallel hasn't been set in config.ini, using 1 as default")
         parallel = 1
@@ -305,6 +312,8 @@ def main():
         do_ping(dargs['<hostlist>'])
     elif dargs['ssh']:
         do_ssh(dargs['<hostlist>'], dargs['<command>'])
+    elif dargs['command']:
+        ipmi_do(dargs['<hostlist>'], *dargs['<command>'])
 
 if __name__ == '__main__':
     main()
