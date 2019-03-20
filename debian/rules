@@ -7,7 +7,10 @@
 override_dh_auto_build:
 	mkdir docs/man
 	$(MAKE) -C docs/
-
+override_dh_install:
+	mkdir -p $(CURDIR)/debian/clara-core/usr/share/clara/
+	cp  example-conf/config_default.ini $(CURDIR)/debian/clara-core/usr/share/clara/config.ini
+	dh_install
 override_dh_clean:
 	rm -rf Clara.egg-info/
 	rm -rf docs/man
