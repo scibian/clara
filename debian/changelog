@@ -1,3 +1,10 @@
+clara (0.20190320-0sci8u1) scibian8; urgency=medium
+
+  * New release for calibre9 0.20190320.
+  * Fix issues of v1 Milestone in edf-hpc/clara.
+ 
+ -- Said AMIROUCHE <said-externe.amirouche@edf.fr>  Tue, 19 Mar 2019 17:37:02 +0100
+
 clara (0.20190116-0sci8u1) scibian8; urgency=medium
 
   * New upstream version 0.20190116.
