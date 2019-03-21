@@ -1,3 +1,10 @@
+clara (0.20190321-0sci8u1) scibian8; urgency=medium
+
+  * New release for calibre9 0.20190321
+  * Fix clara version to be coherent 
+
+ -- Cristian RUIZ <cristian-externe.ruiz@edf.fr>  Thu, 21 Mar 2019 15:14:14 +0100
+
 clara (0.20190320-0sci8u1) scibian8; urgency=medium
 
   * New release for calibre9 0.20190320.
