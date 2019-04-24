@@ -1,3 +1,9 @@
+clara (0.20190424-0sci9u2) scibian9; urgency=medium
+
+  * Fix Changelog in scibian/stretch
+
+ -- AMIROUCHE Said <said-externe.amirouche@edf.fr>  Wed, 24 Apr 2019 16:52:50 +0200
+
 clara (0.20190424-0sci9u1) scibian9; urgency=medium
 
   * New release for Scibian9 0.20190424.
