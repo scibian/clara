@@ -1,3 +1,10 @@
+clara (0.20190424-0sci9u1) scibian9; urgency=medium
+
+  * New release for Scibian9 0.20190424.
+  * Fix p2p restricted rights on torrent files and their directories
+
+ -- AMIROUCHE Said <said-externe.amirouche@edf.fr>  Wed, 24 Apr 2019 15:30:45 +0200
+
 clara (0.20190321-0sci9u1) scibian9; urgency=medium
 
   * New release for scibian9 0.20190321
