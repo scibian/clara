@@ -318,7 +318,7 @@ def genimg(image):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
             image_name=dist+"_image.squashfs"
-            squashfs_file = "/var/lib/clara/"+image_name
+            squashfs_file = "/var/lib/clara/images/"+image_name
             if os.path.isfile(squashfs_file):
                 os.rename(squashfs_file, squashfs_file + ".old")
                 logging.info("Previous image renamed to {0}.".format(squashfs_file + ".old"))
@@ -337,6 +337,11 @@ def genimg(image):
         logging.info("Previous image renamed to {0}.".format(squashfs_file + ".old"))
 
     logging.info("Creating image at {0}".format(squashfs_file))
+
+    if not os.path.exists(os.path.dirname(squashfs_file)):
+        logging.info("Creating local directory path", os.path.dirname(squashfs_file))
+        os.makedirs(os.path.dirname(squashfs_file))
+ 
     if conf.ddebug:
         run(["mksquashfs", work_dir, squashfs_file, "-no-exports", "-noappend", "-info"])
     else:
@@ -360,7 +365,7 @@ def extract_image(image):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
             image_name=dist+"_image.squashfs"
-            squashfs_file = "/var/lib/clara/"+image_name
+            squashfs_file = "/var/lib/clara/images/"+image_name
     else:
         squashfs_file = image
 
@@ -383,7 +388,7 @@ def geninitrd(path):
         trg_dir = get_from_config("images", "trg_dir", dist)
 
         if (trg_dir=="" or trg_dir==None):
-            trg_dir = "/var/lib/clara/"
+            trg_dir = "/var/lib/clara/images/"
     else:
         trg_dir = path
 
@@ -393,7 +398,7 @@ def geninitrd(path):
     squashfs_file = get_from_config("images", "trg_img", dist)
     if (squashfs_file=="" or squashfs_file==None):
         image_name=dist+"_image.squashfs"
-        squashfs_file = "/var/lib/clara/"+image_name
+        squashfs_file = "/var/lib/clara/images/"+image_name
     if not os.path.isfile(squashfs_file):
         clara_exit("{0} does not exist!".format(squashfs_file))
 
@@ -452,7 +457,8 @@ def push(image):
     if (image is None):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
-            squashfs_file = "/var/lib/clara/image.squashfs"
+            image_name=dist+"_image.squashfs"
+            squashfs_file = "/var/lib/clara/images/"+image_name
     else:
         squashfs_file = image
 
@@ -477,8 +483,8 @@ def edit(image):
     if (image is None):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
-            squashfs_file = "/var/lib/clara/image.squashfs"
-
+            image_name=dist+"_image.squashfs"
+            squashfs_file = "/var/lib/clara/images/"+image_name
     else:
         squashfs_file = image
 
