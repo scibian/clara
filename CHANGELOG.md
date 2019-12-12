@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## [0.20191210] - 2019-12-10
+
+### Fixed
+- enc: fix digest type used for the calculation of the encryption key.
+  Define digest type in config.ini instead of using the default digest of the operating system,
+  and use sha256 in case of invalid or undefined digest type (fix #118)
+
 ## [0.20190424] - 2019-04-24
+
 ### Fixed
 - p2p: fix restricted rights on torrent files and their directories
 - images: create local squash directory if it doesn't exist before making squash file
