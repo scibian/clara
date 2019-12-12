@@ -1,3 +1,13 @@
+clara (0.20191210-0sci9u2) scibian9; urgency=medium
+
+  * New release for Scibian9 0.20191210.
+  * enc: 
+    - Fix digest type used for the calculation of the encryption key.
+      Define digest type in config.ini instead of using the default digest of the 
+      operating system and use sha256 in case of invalid or undefined digest type
+
+ -- Mouad Bahi <mouad-externe.bahi@edf.fr>  Thu, 12 Dec 2019 18:22:32 +0100
+
 clara (0.20190424-0sci9u2) scibian9; urgency=medium
 
   * Fix Changelog in scibian/stretch
