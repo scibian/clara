@@ -1,31 +1,3 @@
-<<<<<<< HEAD
-clara (0.20190424-0sci8u1) scibian8; urgency=medium
-
-  * New release for calibre9 0.20190424.
-  * Fix p2p restricted rights on torrent files and their directories
-
- -- AMIROUCHE Said <said-externe.amirouche@edf.fr>  Wed, 24 Apr 2019 15:25:45 +0200
-
-clara (0.20190321-0sci8u1) scibian8; urgency=medium
-
-  * New release for calibre9 0.20190321
-  * Fix clara version to be coherent 
-
- -- Cristian RUIZ <cristian-externe.ruiz@edf.fr>  Thu, 21 Mar 2019 15:14:14 +0100
-
-clara (0.20190320-0sci8u1) scibian8; urgency=medium
-
-  * New release for calibre9 0.20190320.
-  * Fix issues of v1 Milestone in edf-hpc/clara.
- 
- -- Said AMIROUCHE <said-externe.amirouche@edf.fr>  Tue, 19 Mar 2019 17:37:02 +0100
-
-clara (0.20190116-0sci8u1) scibian8; urgency=medium
-
-  * New upstream version 0.20190116.
-
- -- Benoit Boccard <benoit-externe.boccard@edf.fr>  Wed, 20 Feb 2019 16:03:20 +0100
-=======
 clara (0.20191210-0sci9u2) scibian9; urgency=medium
 
   * New release for Scibian9 0.20191210.
@@ -74,7 +46,6 @@ clara (0.20180123-0sci9u1) scibian9; urgency=medium
   * Rebuild for scibian9
 
  -- Rémi Palancher <remi-externe.palancher@edf.fr>  Thu, 26 Apr 2018 16:14:45 +0200
->>>>>>> scibian/stretch
 
 clara (0.20180123-0sci8u2) scibian8; urgency=medium
 
