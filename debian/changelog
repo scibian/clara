@@ -1,51 +1,39 @@
-clara (0.20191210-0sci9u2) scibian9; urgency=medium
+clara (0.20191210-0sci8u1) scibian8; urgency=medium
 
-  * New release for Scibian9 0.20191210.
+  * New release for Scibian8 0.20191210.
   * enc: 
     - Fix digest type used for the calculation of the encryption key.
       Define digest type in config.ini instead of using the default digest of the 
-      operating system and use sha256 in case of invalid or undefined digest type
+      operating system and use sha256 in case of invalid or undefined digest type.
 
- -- Mouad Bahi <mouad-externe.bahi@edf.fr>  Thu, 12 Dec 2019 18:22:32 +0100
+ -- Mouad Bahi <mouad-externe.bahi@edf.fr>  Thu, 12 Dec 2019 19:23:40 +0100
 
-clara (0.20190424-0sci9u2) scibian9; urgency=medium
+clara (0.20190424-0sci8u1) scibian8; urgency=medium
 
-  * Fix Changelog in scibian/stretch
-
- -- AMIROUCHE Said <said-externe.amirouche@edf.fr>  Wed, 24 Apr 2019 16:52:50 +0200
-
-clara (0.20190424-0sci9u1) scibian9; urgency=medium
-
-  * New release for Scibian9 0.20190424.
+  * New release for calibre9 0.20190424.
   * Fix p2p restricted rights on torrent files and their directories
 
- -- AMIROUCHE Said <said-externe.amirouche@edf.fr>  Wed, 24 Apr 2019 15:30:45 +0200
+ -- AMIROUCHE Said <said-externe.amirouche@edf.fr>  Wed, 24 Apr 2019 15:25:45 +0200
 
-clara (0.20190321-0sci9u1) scibian9; urgency=medium
+clara (0.20190321-0sci8u1) scibian8; urgency=medium
 
-  * New release for scibian9 0.20190321
-  * Fix clara version to be coherent with upstream
+  * New release for calibre9 0.20190321
+  * Fix clara version to be coherent 
 
- -- Cristian RUIZ <cristian-externe.ruiz@edf.fr>  Thu, 21 Mar 2019 15:02:57 +0100
+ -- Cristian RUIZ <cristian-externe.ruiz@edf.fr>  Thu, 21 Mar 2019 15:14:14 +0100
 
-clara (0.20190320-0sci9u1) scibian9; urgency=medium
+clara (0.20190320-0sci8u1) scibian8; urgency=medium
 
-  * New release for scibian9 0.20190320.
+  * New release for calibre9 0.20190320.
   * Fix issues of v1 Milestone in edf-hpc/clara.
+ 
+ -- Said AMIROUCHE <said-externe.amirouche@edf.fr>  Tue, 19 Mar 2019 17:37:02 +0100
 
- -- Cristian RUIZ <cristian-externe.ruiz@edf.fr>  Wed, 20 Mar 2019 17:22:35 +0100
+clara (0.20190116-0sci8u1) scibian8; urgency=medium
 
-clara (0.20190116-0sci9u1) scibian9; urgency=medium
+  * New upstream version 0.20190116.
 
-  * New upstream version 0.20190116
-
- -- Rémi Palancher <remi-externe.palancher@edf.fr>  Wed, 16 Jan 2019 14:51:19 +0100
-
-clara (0.20180123-0sci9u1) scibian9; urgency=medium
-
-  * Rebuild for scibian9
-
- -- Rémi Palancher <remi-externe.palancher@edf.fr>  Thu, 26 Apr 2018 16:14:45 +0200
+ -- Benoit Boccard <benoit-externe.boccard@edf.fr>  Wed, 20 Feb 2019 16:03:20 +0100
 
 clara (0.20180123-0sci8u2) scibian8; urgency=medium
 
