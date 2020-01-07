@@ -1,3 +1,13 @@
+clara (0.20200106-0sci9u1) scibian9; urgency=medium
+
+  * New release for scibian9 0.20200106
+  * enc: 
+    - fix exception in case of undefined digest type
+    - remove digest_type parameter from config.ini
+    - add digest_type parameter in config_default.ini
+
+ -- Mouad BAHI <mouad-externe.bahi@edf.fr>  Tue, 07 Jan 2020 16:56:30 +0100
+
 clara (0.20191210-0sci9u2) scibian9; urgency=medium
 
   * New release for Scibian9 0.20191210.
