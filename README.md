@@ -1,6 +1,8 @@
 Clara, a set of Cluster Administration Tools
 ============================================
 
+!! Warning: this code is compatible only with Python3
+
 ## Overview
 
 [clara](https://github.com/edf-hpc/clara/blob/master/docs/source/clara.md) is a set of cluster administration tools.  The different tools are written as plugins that can be added or removed independently.
@@ -40,3 +42,12 @@ To generate a tarball, run:
 git archive --format=tar.gz --prefix=clara-$VERSION/ \
     v$VERSION > ../clara-$VERSION.tar.gz
 ```
+
+## Tests
+
+For running tests please install: `pytest pytest-mock mock` and then run:
+
+```buildoutcfg
+pytest
+```
+Under the project directory

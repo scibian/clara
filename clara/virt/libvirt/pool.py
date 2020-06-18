@@ -32,17 +32,16 @@
 #  knowledge of the CeCILL-C license and that you accept its terms.          #
 #                                                                            #
 ##############################################################################
-
 import logging
-logger = logging.getLogger(__name__)
-
 import re
 
 from clara.virt.exceptions import VirtRuntimeError
 from clara.virt.libvirt.volume import Volume
 
+logger = logging.getLogger(__name__)
 
-class Pool():
+
+class Pool:
     """Virt Storage Pool
     """
     def __init__(self, conf, group, pool_name=None):
@@ -62,7 +61,7 @@ class Pool():
         self.client = None
 
     def refresh(self):
-        clients = self.group.get_clients().values()
+        clients = list(self.group.get_clients().values())
         if len(clients) == 0:
             raise VirtRuntimeError(
                 "Pool discovery needs at least one client in the node group.")
