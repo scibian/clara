@@ -54,13 +54,6 @@ import docopt
 
 from clara.utils import clara_exit, get_from_config
 
-# this dict both defines the allowed dists in parameter of this script and the
-# associated tag appended to the debian version of the rebuilt package
-target_dists = {}
-for elem in get_from_config("build", "target_dists").split(","):
-    key, value = elem.split(":")
-    target_dists[key] = value
-
 
 def copy_files_to_workdir(orig, dest):
     for f in glob.glob(orig):
@@ -78,6 +71,13 @@ def print_info(name, full_version, upstream_version, debian_version):
 def main():
     logging.debug(sys.argv)
     dargs = docopt.docopt(__doc__, options_first=True)
+
+    # this dict both defines the allowed dists in parameter of this script and the
+    # associated tag appended to the debian version of the rebuilt package
+    target_dists = {}
+    for elem in get_from_config("build", "target_dists").split(","):
+        key, value = elem.split(":")
+        target_dists[key] = value
 
     target_dist = dargs['<dist>']
     if target_dist not in target_dists.keys():
@@ -119,18 +119,22 @@ def main():
         # Check if the source package exists in the reprepro of origin_dist
         cmd = ["clara", "repo", "list", origin_dist]
         logging.debug(" ".join(cmd))
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                universal_newlines=True)
         lines_proc = proc.stdout.readlines()
         found_package = False
+        line_package = ""
         for line in lines_proc:
             if ("|source: {0} ".format(package_name) in line):
+                line_package = line
                 found_package = True
                 break
 
         # If we fail to find the package, we list what's available and exit
         if not found_package:
             logging.info("Package {0} not found. The available packages in {1} are:".format(package_name, origin_dist))
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    universal_newlines=True)
             lines_proc = proc.stdout.readlines()
             for l in lines_proc:
                 if "|source: " in l:
@@ -140,7 +144,7 @@ def main():
 
         # Look for the files and copy them to the temp directory
         area = "main"
-        if "non-free" in line:
+        if "non-free" in line_package:
             area = "non-free"
 
         if package_name.startswith("lib"):
@@ -151,7 +155,7 @@ def main():
         # Note this is the path from the *origin* dist
         repo_path_pool = get_from_config("build", "repo_path_pool", origin_dist)
         repo_path_pool = repo_path_pool + "{0}/{1}".format(area, package_dir)
-        full_version = line.split(" ")[-1].strip()
+        full_version = line_package.split(" ")[-1].strip()
         upstream_version, debian_version = full_version.split("-")
         name = package_name
 
