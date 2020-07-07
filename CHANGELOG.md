@@ -4,8 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## [0.20200707] - 2020-07-07
 
-## [0.20200106] - 2020-01-06
+### Added
+- images: add support for centos8 image creation
+
+## [0.20200617] - 2020-06-17
 
 ### Added
 - clara: add pytest unitary tests
