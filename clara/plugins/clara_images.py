@@ -428,8 +428,6 @@ def system_install(work_dir, dist):
     if dists[ID]['pkgManager'] == "yum":
         run_chroot(["chroot", work_dir, distrib["pkgManager"], "upgrade"], work_dir)
         run_chroot(["chroot", work_dir, distrib["pkgManager"], "clean","all"], work_dir)
-        shutil.rmtree(work_dir + "/run")
-        run_chroot(["chroot", work_dir, "ln", "-s", "/var/run", "/run"], work_dir)
     umount_chroot(work_dir)
 
 
@@ -696,7 +694,7 @@ def edit(image, work_dir, dist):
     os.putenv("PROMPT_COMMAND", "echo -ne  '\e[1;31m({0}) clara images> \e[0m'".format(dist))
     pty.spawn(["/bin/bash"])
 
-    save = raw_input('Save changes made in the image? (N/y)')
+    save = input('Save changes made in the image? (N/y)')
     logging.debug("Input from the user: '{0}'".format(save))
     if save not in ('Y', 'y'):
         clara_exit("Changes ignored. The image {0} hasn't been modified.".format(squashfs_file))
