@@ -1,3 +1,9 @@
+clara (0.20200106.1-0sci9u1) scibian9; urgency=medium
+
+  * New upstream release 0.20200106.1
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Tue, 20 Oct 2020 17:09:46 +0200
+
 clara (0.20200106-0sci9u1) scibian9; urgency=medium
 
   * New release for scibian9 0.20200106
