@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+## [0.20201203] - 2020-12-03
+
+### Fixed
+
+- images: Improve Yum/DNF support
+- repo: control digest used to decode repos signature key
+
 ## [0.20201015] - 2020-10-15
 
 ### Fixed
