@@ -76,7 +76,6 @@ Clara is a set of tools to help administering and installing clusters.
 Summary: This package provides the build plugin of Clara.
 Group: Application/System
 Requires: clara-core
-Recommends: cowbuilder
 %description plugin-build
 Cluster administration tools build plugin
 Clara is a set of tools to help administering and installing clusters.
@@ -132,7 +131,6 @@ Clara is a set of tools to help administering and installing clusters.
 Summary: This package provides the repo plugin of Clara.
 Group: Application/System
 Requires: clara-core gnupg debmirror
-Recommends: reprepro
 %description plugin-repo
 Cluster administration tools repo plugin
 Clara is a set of tools to help administering and installing clusters.
