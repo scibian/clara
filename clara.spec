@@ -1,11 +1,11 @@
 # Configuration Logic
-%define unmangled_version 0.20201203
+%define unmangled_version 0.20210305
 %define debug_package %{nil}
 
 # Main preamble
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
-Version: 0.20201203
+Version: 0.20210305
 Release:  1%{?dist}.edf
 Source0: %{name}-%{unmangled_version}.tar.gz
 License: GPLv3
@@ -263,6 +263,11 @@ Clara is a set of tools to help administering and installing clusters.
 
 
 %changelog
+* Fri Mar 05 2021 Guillaume RANQUET <guillaume-externe.ranquet@edf.fr> 0.20210305-1el8.edf
+- New upstream version 0.20210305
+- Fix typo in BuildRequires updmap
+- Removes weak dependencies to accomodate for CI support
+
 * Thu Dec 03 2020 Thomas HAMEL <thomas-t.hamel@edf.fr> 0.20201203-1el8.edf
 - New upstream version 0.20201203
 - Fix buildreqs to build the documentation
