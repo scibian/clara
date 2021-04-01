@@ -37,7 +37,7 @@ import errno
 import logging
 import os
 import subprocess
-import ConfigParser
+import configparser
 import sys
 
 import ClusterShell.NodeSet
@@ -64,7 +64,8 @@ def clush(hosts, cmds):
     task.run(cmds, nodes=hosts)
 
     for output, nodes in task.iter_buffers():
-        logging.info("{0} {1}".format(ClusterShell.NodeSet.NodeSet.fromlist(nodes), output))
+        logging.info("{0} {1}".format(ClusterShell.NodeSet.NodeSet.fromlist(nodes),
+                                      output.message().decode('utf8')))
 
 
 def run(cmd, exit_on_error=True):
@@ -81,7 +82,7 @@ def run(cmd, exit_on_error=True):
 
     try:
         retcode = subprocess.call(cmd)
-    except OSError, e:
+    except OSError as e:
         if (e.errno == errno.ENOENT):
             clara_exit("Binary not found, check your path and/or retry as root. \
                       You were trying to run:\n {0}".format(" ".join(cmd)))
@@ -161,7 +162,7 @@ def getconfig():
         files.append(conf.config)
 
     if getconfig.config is None:
-        getconfig.config = ConfigParser.ConfigParser()
+        getconfig.config = configparser.ConfigParser()
         getconfig.config.read(files)
 
     return getconfig.config

@@ -79,24 +79,28 @@ import multiprocessing
 import logging
 import os
 import re
-import socket
 import subprocess
 import sys
 
 import ClusterShell
 import docopt
-from clara.utils import clara_exit, run, get_from_config, get_from_config_or, value_from_file, has_config_value
+from clara.utils import clara_exit, run, get_from_config, get_from_config_or, get_bool_from_config_or, value_from_file, has_config_value
 
+
+# Global dictionary
+_opts = {'parallel': 1}
 
 def full_hostname(host):
     prefix = get_from_config("ipmi", "prefix")
     suffix = get_from_config_or("ipmi", "suffix", "")
-    return (prefix + host + suffix)
+    return prefix + host + suffix
 
 
 def ipmi_run(cmd):
 
-    ipmi_p = subprocess.Popen(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+    ipmi_p = subprocess.Popen(cmd, stderr=subprocess.STDOUT,
+                              stdout=subprocess.PIPE,
+                              universal_newlines=True)
     output = ipmi_p.communicate()[0].strip()
     exit_code = ipmi_p.wait()
     if exit_code:
@@ -111,7 +115,7 @@ def ipmi_do(hosts, *cmd):
     os.environ["IPMI_PASSWORD"] = value_from_file(get_from_config("common", "master_passwd_file"), "IMMPASSWORD")
     nodeset = ClusterShell.NodeSet.NodeSet(hosts)
 
-    p = multiprocessing.Pool(parallel)
+    p = multiprocessing.Pool(_opts['parallel'])
     result_map = {}
 
     for host in nodeset:
@@ -129,7 +133,7 @@ def ipmi_do(hosts, *cmd):
     p.join()
 
     for host, result in result_map.items():
-        print host, result.get()
+        print(host, result.get())
 
 
 def getmac(hosts):
@@ -145,10 +149,10 @@ def getmac(hosts):
         logging.info("{0}: ".format(host))
         cmd = ["ipmitool", "-I", "lanplus", "-H", host,
                "-U", imm_user, "-E", "fru", "print", "0"]
-
         logging.debug("ipmi/getmac: {0}".format(" ".join(cmd)))
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                universal_newlines=True)
         # The data we want is in line 15
         lines = proc.stdout.readlines()
         if (len(lines) < 14):
@@ -198,30 +202,28 @@ def do_connect(host, j=False, f=False):
     else:
         conmand = get_from_config_or("ipmi", "conmand", '')
         port = int(get_from_config("ipmi", "port"))
-        if (len(conmand) == 0):
+        if len(conmand) == 0:
             do_connect_ipmi(host)
             return
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.connect((conmand, port))
-            os.environ["CONMAN_ESCAPE"] = '!'
+        cmd = []
+        ssh_jhost = get_bool_from_config_or("ipmi", "ssh_jump_host")
 
-            cmd = ["conman"]
+        if ssh_jhost:
+            cmd += ["ssh", "-t", conmand]
+            conmand = "localhost"
+        cmd += ["conman"]
+
+        try:
             if j:
                 cmd = cmd + ["-j"]
             if f:
                 cmd = cmd + ["-f"]
-            cmd = cmd + ["-d", conmand, host]
+            cmd = cmd + ["-d", conmand, host, "-e!"]
             run(cmd, exit_on_error=False)
-        except socket.error as e:
-            logging.debug("Conman not running. Message on connect: Errno {0} - {1}".format(e.errno, e.strerror))
-            do_connect_ipmi(host)
         except RuntimeError as e:
             logging.warning("Conman failed, fallback to ipmitool")
             do_connect_ipmi(host)
-
-        s.close()
 
 
 def do_ping(hosts):
@@ -231,7 +233,7 @@ def do_ping(hosts):
 
 
 def do_ssh(hosts, command):
-    hosts_l = [ full_hostname(host) for host in ClusterShell.NodeSet.NodeSet(hosts) ]
+    hosts_l = [full_hostname(host) for host in ClusterShell.NodeSet.NodeSet(hosts)]
     hosts = ClusterShell.NodeSet.NodeSet('')
     hosts.updaten(hosts_l)
 
@@ -249,25 +251,25 @@ def do_ssh(hosts, command):
     task.shell(command, nodes=hosts.__str__())
     task.resume()
 
+
     for buf, nodes in task.iter_buffers():
-        print "---\n%s:\n---\n %s" \
+        print("---\n%s:\n---\n %s" \
               % (ClusterShell.NodeSet.fold(",".join(nodes)),
-                 buf)
+                 buf))
+
 
 def main():
     logging.debug(sys.argv)
     dargs = docopt.docopt(__doc__)
 
-    global parallel
     # Use the value provided by the user in the command line
     if dargs['--p'] is not None and dargs['--p'].isdigit():
-        parallel = int(dargs['--p'])
+        _opts['parallel'] = int(dargs['--p'])
     # Read the value from the config file and use 1 if it hasn't been set
     elif has_config_value("ipmi", "parallel"):
-        parallel = int(get_from_config("ipmi", "parallel"))
+        _opts['parallel']= int(get_from_config("ipmi", "parallel"))
     else:
         logging.debug("parallel hasn't been set in config.ini, using 1 as default")
-        parallel = 1
 
     if dargs['connect']:
         do_connect(dargs['<host>'], dargs['-j'], dargs['-f'])
