@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 ##############################################################################
-#  Copyright (C) 2014-2018 EDF SA                                            #
+#  Copyright (C) 2014-2020 EDF SA                                            #
 #                                                                            #
 #  This file is part of Clara                                                #
 #                                                                            #
@@ -55,92 +55,238 @@ import subprocess
 import sys
 import tempfile
 import time
-
+import glob
 import docopt
+
 from clara.utils import clara_exit, run, get_from_config, get_from_config_or, has_config_value, conf, get_bool_from_config_or
 from clara import sftp
 
-def run_chroot(cmd):
+_opts = {'keep_chroot_dir': None}
+
+
+dists = {
+   "debian": {
+     "pkgManager": "apt-get",
+     "src_list": "/etc/apt/sources.list",
+     "apt_pref": "/etc/apt/preferences.d/00custompreferences",
+     "apt_conf": "/etc/apt/apt.conf.d/99nocheckvalid",
+     "dpkg_conf": "/etc/dpkg/dpkg.cfg.d/excludes",
+     "bootstrapper": "debootstrap",
+     "initrdGen": "mkinitramfs"
+  },
+   "centos": {
+     "pkgManager": "yum",
+     "src_list": "/etc/yum.repos.d/centos.repo",
+     "rpm_lib": "/var/lib/rpm",
+     "bootstrapper": "yum",
+     "initrdGen": "dracut",
+     "sources": {
+          'baseos': {'subdir': 'BaseOS/x86_64/os',
+          'appstream': {'subdir': 'AppStream/x86_64/os' }
+        }
+     }
+  },
+   "rhel": {
+     "pkgManager": "yum",
+     "src_list": "/etc/yum.repos.d/rhel.repo",
+     "rpm_lib": "/var/lib/rpm",
+     "bootstrapper": "yum",
+     "initrdGen": "dracut",
+     "sources": {
+          'baseos': {'subdir': 'BaseOS',
+          'appstream': {'subdir': 'AppStream' }
+        }
+     }
+  }
+}
+
+
+class osRelease:
+    # Common base class for OS release
+    def __init__(self, ID, VERSION_ID):
+        self.ID = ID
+        self.VERSION_ID = VERSION_ID
+        self.dist = dists[ID]
+
+    def bootstrapper(self, opts):
+        opts.insert(0,self.dist["bootstrapper"])
+        run(opts)
+
+    def genInitrd(opts):
+        run([self.dist["initrdGen"],opts])
+
+class imageInstant(osRelease):
+    # Common base class for
+    def __init__(self, workdir, ID, VERSION_ID):
+        osRelease.__init__(self, ID, VERSION_ID)
+        self.workdir = workdir
+
+def run_chroot(cmd, work_dir):
     logging.debug("images/run_chroot: {0}".format(" ".join(cmd)))
 
     try:
         retcode = subprocess.call(cmd)
-    except OSError, e:
+    except OSError as e:
         if (e.errno == errno.ENOENT):
             clara_exit("Binary not found, check your path and/or retry as root. \
                       You were trying to run:\n {0}".format(" ".join(cmd)))
 
     if retcode != 0:
-        umount_chroot()
-        if not keep_chroot_dir:
+        umount_chroot(work_dir)
+        if not _opts['keep_chroot_dir']:
             shutil.rmtree(work_dir)
         clara_exit(' '.join(cmd))
 
 
-def base_install():
-    # Debootstrap
-    src_list = work_dir + "/etc/apt/sources.list"
-    apt_pref = work_dir + "/etc/apt/preferences.d/00custompreferences"
-    apt_conf = work_dir + "/etc/apt/apt.conf.d/99nocheckvalid"
-    dpkg_conf = work_dir + "/etc/dpkg/dpkg.cfg.d/excludes"
-    etc_host = work_dir + "/etc/hosts"
+def get_osRelease(dist):
+    if "centos8" in dist:
+        ID = "centos"
+        ID_Version = "8"
+    if "rhel8" in dist:
+        ID = "rhel"
+        ID_Version = "8"
+    if "calibre9" in dist:
+        ID = "debian"
+        ID_Version = "8"
+    if "scibian9" in dist:
+        ID = "debian"
+        ID_Version = "8"
 
-    debiandist = get_from_config("images", "debiandist", dist)
-    debmirror = get_from_config("images", "debmirror", dist)
+    logging.debug("images/get_osRelease: %s => %s/%s", dist, ID, ID_Version)
+    return ID, ID_Version
+    
+def list_all_repos(dist):
+	list_repos_nonsplitted = get_from_config("images", "list_repos", dist)
+	if ';' in list_repos_nonsplitted:
+		separator = ';'
+	else:
+		separator = ','
+	list_repos = list_repos_nonsplitted.split(separator)
+	return list_repos
+
+def set_yum_src_file(src_list, baseurl, gpgcheck, sources, list_repos = None):
+    if not baseurl.endswith('/'):
+         baseurl = baseurl + '/'
+    dir_path = os.path.dirname(os.path.realpath(src_list))
+    files = glob.glob(dir_path+"/*")
+    for f in files:
+        os.remove(f)
+    f = open(src_list, "w")
+    for source_name in sources.keys():
+        lines = []
+        name = "bootstrap_" + source_name
+        base_url = baseurl + sources[source_name]['subdir']
+        lines = ["["+name+"]","name="+name,"enabled=1","gpgcheck="+str(gpgcheck),"baseurl="+base_url,"sslverify=0\n",]
+        lines = "\n".join(lines)
+        f.writelines(lines)
+    indice = 0
+    for repo in list_repos:
+        lines = []
+        name = "bootstrap_repo_" + str(indice)
+        lines = ["["+name+"]","name="+name,"enabled=1","gpgcheck="+str(gpgcheck),"baseurl="+repo,"sslverify=0\n",]
+        lines = "\n".join(lines)
+        f.writelines(lines)
+        indice += 1
+    f.close()
+
+def base_install(work_dir, dist):
+    ID, VERSION_ID = get_osRelease(dist)
+    image = imageInstant(work_dir, ID, VERSION_ID)
+    distrib = image.dist
+    opts = []
+
+    # bootstrap
+    src_list = work_dir + distrib["src_list"]
+    etc_host = work_dir + "/etc/hosts"
+    if dists[ID]['bootstrapper'] == "debootstrap":
+        logging.debug("images/base_install: Using debootstrap for %s (%s/%s)", dist, ID, VERSION_ID)
+        apt_pref = work_dir + distrib["apt_pref"]
+        apt_conf = work_dir + distrib["apt_conf"]
+        dpkg_conf = work_dir + distrib["dpkg_conf"]
+
+        debiandist = get_from_config("images", "debiandist", dist)
+        debmirror = get_from_config("images", "debmirror", dist)
+
+        opts = [debiandist , work_dir, debmirror]
+
+    if dists[ID]['bootstrapper'] == "yum":
+        logging.debug("images/base_install: Using RPM for %s (%s/%s)", dist, ID, VERSION_ID)
+        minimal_packages_list = [ 'yum', 'util-linux', 'shadow-utils', 'glibc-minimal-langpack' ]
+        rpm_lib = work_dir + distrib["rpm_lib"]
+        baseurl = get_from_config("images", "baseurl", dist)
+        umask = os.umask(0o022)
+        os.makedirs(rpm_lib)
+        run(["rpm", "--root", work_dir ,"-initdb"])
+        os.umask(umask)
+        opts = ["install", "-y", "--nobest", "--installroot=" + work_dir] + minimal_packages_list
+
+    if conf.ddebug:
+        opts = ["--verbose"] + opts
 
     # Get GPG options
     gpg_check = get_bool_from_config_or("images", "gpg_check", dist, True)
     gpg_keyring = get_from_config_or("images", "gpg_keyring", dist, None)
 
-    cmd = ["debootstrap", debiandist, work_dir, debmirror]
-
-    if gpg_check:
-        if gpg_keyring is not None:
-            cmd.insert(1, "--keyring=%s" % gpg_keyring)
-    else:
-        cmd.insert(1, "--no-check-gpg")
+    if dists[ID]['pkgManager'] == "apt-get":
+        if gpg_check:
+            if gpg_keyring is not None:
+                opts.insert(0, "--keyring=%s" % gpg_keyring)
+        else:
+            opts.insert(1, "--no-check-gpg")
 
     if conf.ddebug:
-        cmd.insert(1, "--verbose")
+        opts.insert(1, "--verbose")
 
-    run(cmd)
+    image.bootstrapper(opts)
+    if dists[ID]['pkgManager'] == "yum":
+        list_repos = list_all_repos(dist)
+        set_yum_src_file(src_list, baseurl, gpg_check, dists[ID]['sources'], list_repos)
 
-    # Prevent services from starting automatically
-    policy_rc = work_dir + "/usr/sbin/policy-rc.d"
-    with open(policy_rc, 'w') as p_rcd:
-        p_rcd.write("exit 101")
-    p_rcd.close()
-    os.chmod(policy_rc, 0o755)
+    if dists[ID]['pkgManager'] == "apt-get":
+        # Prevent services from starting automatically
+        policy_rc = work_dir + "/usr/sbin/policy-rc.d"
+        with open(policy_rc, 'w') as p_rcd:
+            p_rcd.write("exit 101")
+        p_rcd.close()
+    
+        os.chmod(policy_rc, 0o755)
+        # Mirror setup
+        list_repos = list_all_repos(dist)
+    
+        with open(src_list, 'w') as fsources:
+            for line in list_repos:
+                fsources.write(line + '\n')
+        os.chmod(src_list, 0o644)
+    
+        with open(apt_pref, 'w') as fapt:
+            fapt.write("""Package: *
+    Pin: release o={0}
+    Pin-Priority: 5000
+    
+    Package: *
+    Pin: release o={1}
+    Pin-Priority: 6000
+    """.format(dist, get_from_config("common", "origin", dist)))
+        os.chmod(apt_pref, 0o644)
+    
+        # Misc config
+        with open(apt_conf, 'w') as fconf:
+            fconf.write('Acquire::Check-Valid-Until "false";\n')
+        os.chmod(apt_conf, 0o644)
+    
+    
+        with open(dpkg_conf, 'w') as fdpkg:
+            fdpkg.write("""# Drop locales except French
+path-exclude=/usr/share/locale/*
+path-include=/usr/share/locale/fr/*
+path-include=/usr/share/locale/locale.alias
+# Drop manual pages
+# (We keep manual pages in the image)
+## path-exclude=/usr/share/man/*
+""")
+        os.chmod(dpkg_conf, 0o644)
 
-    # Mirror setup
-    list_repos_nonsplitted = get_from_config("images", "list_repos", dist)
-    if ';' in list_repos_nonsplitted:
-        separator = ';'
-    else:
-        separator = ','
-    list_repos = list_repos_nonsplitted.split(separator)
-
-    with open(src_list, 'w') as fsources:
-        for line in list_repos:
-            fsources.write(line + '\n')
-    os.chmod(src_list, 0o644)
-
-    with open(apt_pref, 'w') as fapt:
-        fapt.write("""Package: *
-Pin: release o={0}
-Pin-Priority: 5000
-
-Package: *
-Pin: release o={1}
-Pin-Priority: 6000
-""".format(dist, get_from_config("common", "origin", dist)))
-    os.chmod(apt_pref, 0o644)
-
-    # Misc config
-    with open(apt_conf, 'w') as fconf:
-        fconf.write('Acquire::Check-Valid-Until "false";\n')
-    os.chmod(apt_conf, 0o644)
-
+    # Setup initial /etc/hosts
     lists_hosts = get_from_config("images", "etc_hosts", dist).split(",")
     with open(etc_host, 'w') as fhost:
         for elem in lists_hosts:
@@ -151,31 +297,27 @@ Pin-Priority: 6000
                 logging.warning("The option etc_hosts is malformed or missing an argument")
     os.chmod(etc_host, 0o644)
 
-    with open(dpkg_conf, 'w') as fdpkg:
-        fdpkg.write("""# Drop locales except French
-path-exclude=/usr/share/locale/*
-path-include=/usr/share/locale/fr/*
-path-include=/usr/share/locale/locale.alias
-
-# Drop manual pages
-# (We keep manual pages in the image)
-## path-exclude=/usr/share/man/*
-""")
-    os.chmod(dpkg_conf, 0o644)
-
     # Set root password to 'clara'
-    part1 = subprocess.Popen(["echo", "root:clara"], stdout=subprocess.PIPE)
-    part2 = subprocess.Popen(["chroot", work_dir, "/usr/sbin/chpasswd"], stdin=part1.stdout)
+    part1 = subprocess.Popen(["echo", "root:clara"],
+                             stdout=subprocess.PIPE,
+                             universal_newlines=True)
+    part2 = subprocess.Popen(["chroot", work_dir, "/usr/sbin/chpasswd"],
+                             stdin=part1.stdout,
+                             universal_newlines=True)
     part1.stdout.close()  # Allow part1 to receive a SIGPIPE if part2 exits.
     #output = part2.communicate()[0]
 
 
-def mount_chroot():
+def mount_chroot(work_dir):
     run(["chroot", work_dir, "mount", "-t", "proc", "none", "/proc"])
     run(["chroot", work_dir, "mount", "-t", "sysfs", "none", "/sys"])
+    if not os.path.exists(work_dir+"/dev/random"):
+        run(["mknod", "-m", "444", work_dir + "/dev/random", "c", "1", "8"])
+    if not os.path.exists(work_dir+"/dev/urandom"):
+        run(["mknod", "-m", "444", work_dir + "/dev/urandom", "c", "1", "9"])
 
 
-def umount_chroot():
+def umount_chroot(work_dir):
     if os.path.ismount(work_dir + "/proc/sys/fs/binfmt_misc"):
         run(["chroot", work_dir, "umount", "/proc/sys/fs/binfmt_misc"])
 
@@ -191,10 +333,13 @@ def umount_chroot():
                 clara_exit("Something went wrong when umounting in the chroot")
 
 
-def system_install():
-    mount_chroot()
+def system_install(work_dir, dist):
+    mount_chroot(work_dir)
+    ID, VERSION_ID = get_osRelease(dist)
+    image = imageInstant(work_dir, ID, VERSION_ID)
+    distrib = image.dist
 
-    # Configure foreign architecture if this has been set in config.ini
+# Configure foreign architecture if this has been set in config.ini
     try:
         foreign_archs = get_from_config("images", "foreign_archs", dist).split(",")
     except:
@@ -203,44 +348,51 @@ def system_install():
     if not foreign_archs:
         logging.warning("foreign_archs is not specified in config.ini".format(foreign_archs))
     else:
-        for arch in foreign_archs:
-            logging.warning("Configure foreign_arch {0}".format(arch))
-            run_chroot(["chroot", work_dir, "dpkg", "--add-architecture", arch])
+        if ID == "debian":
+            for arch in foreign_archs:
+                logging.warning("Configure foreign_arch {0}".format(arch))
+                run_chroot(["chroot", work_dir, "dpkg", "--add-architecture", arch], work_dir)
+            run_chroot(["chroot", work_dir, distrib["pkgManager"], "update"],work_dir)
+        if dists[ID]['pkgManager'] == "yum":
+                run_chroot(["chroot", work_dir, "echo","'multilib_policy=all'", ">>" , work_dir+"/etc/yum.conf"],work_dir)
+                run_chroot(["chroot", work_dir, distrib["pkgManager"], "makecache"],work_dir)
 
-    run_chroot(["chroot", work_dir, "apt-get", "update"])
 
-    # Set presseding if the file has been set in config.ini
-    preseed_file = get_from_config("images", "preseed_file", dist)
-    if not os.path.isfile(preseed_file):
-        logging.warning("preseed_file contains '{0}' and it is not a file!".format(preseed_file))
-    else:
-        shutil.copy(preseed_file, work_dir + "/tmp/preseed.file")
-        # we need to install debconf-utils
-        run_chroot(["chroot", work_dir, "apt-get", "install", "--no-install-recommends", "--yes", "--force-yes", "debconf-utils"])
-        run_chroot(["chroot", work_dir, "apt-get", "update"])
-        run_chroot(["chroot", work_dir, "/usr/lib/dpkg/methods/apt/update", "/var/lib/dpkg/"])
-        run_chroot(["chroot", work_dir, "debconf-set-selections", "/tmp/preseed.file"])
-
-    # Install packages from package_file if this file has been set in config.ini
-    try:
-        package_file = get_from_config("images", "package_file", dist)
-    except:
-        package_file = None
-
-    if not package_file:
-        logging.warning("package_file is not specified in config.ini".format(package_file))
-    elif not os.path.isfile(package_file):
-        logging.warning("package_file contains '{0}' and it is not a file.".format(package_file))
-    else:
-        shutil.copy(package_file, work_dir + "/tmp/packages.file")
-        for i in range(0, 2):
-            part1 = subprocess.Popen(["cat", work_dir + "/tmp/packages.file"],
-                                     stdout=subprocess.PIPE)
-            part2 = subprocess.Popen(["chroot", work_dir, "dpkg", "--set-selections"],
-                                     stdin=part1.stdout, stdout=subprocess.PIPE)
-            part1.stdout.close()  # Allow part1 to receive a SIGPIPE if part2 exits.
-            output = part2.communicate()[0]
-            run_chroot(["chroot", work_dir, "apt-get", "dselect-upgrade", "-u", "--yes", "--force-yes"])
+    if ID == "debian":
+        # Set presseding if the file has been set in config.ini
+        preseed_file = get_from_config("images", "preseed_file", dist)
+        if not os.path.isfile(preseed_file):
+            logging.warning("preseed_file contains '{0}' and it is not a file!".format(preseed_file))
+        else:
+            shutil.copy(preseed_file, work_dir + "/tmp/preseed.file")
+            # we need to install debconf-utils
+            run_chroot(["chroot", work_dir, "apt-get", "install",
+                        "--no-install-recommends", "--yes", "--force-yes", "debconf-utils"], work_dir)
+            run_chroot(["chroot", work_dir, "apt-get", "update"], work_dir)
+            run_chroot(["chroot", work_dir, "/usr/lib/dpkg/methods/apt/update", "/var/lib/dpkg/"], work_dir)
+            run_chroot(["chroot", work_dir, "debconf-set-selections", "/tmp/preseed.file"], work_dir)
+    
+        # Install packages from package_file if this file has been set in config.ini
+        try:
+            package_file = get_from_config("images", "package_file", dist)
+        except:
+            package_file = None
+    
+        if not package_file:
+            logging.warning("package_file is not specified in config.ini".format(package_file))
+        elif not os.path.isfile(package_file):
+            logging.warning("package_file contains '{0}' and it is not a file.".format(package_file))
+        else:
+            shutil.copy(package_file, work_dir + "/tmp/packages.file")
+            for i in range(0, 2):
+                part1 = subprocess.Popen(["cat", work_dir + "/tmp/packages.file"],
+                                         stdout=subprocess.PIPE)
+                part2 = subprocess.Popen(["chroot", work_dir, "dpkg", "--set-selections"],
+                                         stdin=part1.stdout, stdout=subprocess.PIPE)
+                part1.stdout.close()  # Allow part1 to receive a SIGPIPE if part2 exits.
+                output = part2.communicate()[0]
+                run_chroot(["chroot", work_dir, "apt-get", "dselect-upgrade", "-u", "--yes", "--force-yes"],
+                           work_dir)
 
     # Install extra packages if extra_packages_image has been set in config.ini
     extra_packages_image = get_from_config("images", "extra_packages_image", dist)
@@ -248,17 +400,45 @@ def system_install():
         logging.warning("extra_packages_image hasn't be set in the config.ini")
     else:
         pkgs = extra_packages_image.split(",")
-        run_chroot(["chroot", work_dir, "apt-get", "install", "--no-install-recommends", "--yes", "--force-yes"] + pkgs)
+        if ID == "debian":
+            opts = ["--no-install-recommends", "--yes", "--force-yes"]
+        if dists[ID]['pkgManager'] == "yum":
+            opts = ["-y", "--nobest"]
+
+        opts = ["chroot", work_dir, distrib["pkgManager"], "install"] + opts + pkgs 	        
+        run_chroot(opts,
+                   work_dir)
+
+    # Manage groupinstall for centos
+    if dists[ID]['pkgManager'] == "yum":
+        src_list = work_dir + distrib["src_list"]
+        baseurl = get_from_config("images", "baseurl", dist)
+        gpg_check = get_from_config("images", "gpg_check", dist)
+        list_repos = list_all_repos(dist)
+        set_yum_src_file(src_list, baseurl, gpg_check, dists[ID]['sources'], list_repos)
+        group_pkgs = get_from_config("images", "group_pkgs", dist)
+        if len(group_pkgs) == 0:
+            logging.warning("group_pkgs hasn't be set in the config.ini")
+        else:
+            group_pkgs = group_pkgs.split(",")
+            run_chroot(["chroot", work_dir, distrib["pkgManager"], "groupinstall", "-y", "--nobest"] + group_pkgs, work_dir)
 
     # Finally, make sure the base image is updated with all the new versions
-    run_chroot(["chroot", work_dir, "apt-get", "update"])
-    run_chroot(["chroot", work_dir, "apt-get", "dist-upgrade", "--yes", "--force-yes"])
+    if ID == "debian":
+        run_chroot(["chroot", work_dir, distrib["pkgManager"], "update"], work_dir)
+        run_chroot(["chroot", work_dir, "apt-get", "dist-upgrade", "--yes", "--force-yes"], work_dir)
+        run_chroot(["chroot", work_dir, "apt-get", "clean"], work_dir)
+    if dists[ID]['pkgManager'] == "yum":
+        # If run from older yum version (like on Debian), this is necessary to do manually
+        if not os.path.islink(work_dir + '/var/run'):
+            shutil.rmtree(work_dir + "/var/run")
+            run_chroot(["chroot", work_dir, "ln", "-s", "../run", "/var/run"], work_dir)
+        run_chroot(["chroot", work_dir, distrib["pkgManager"], "upgrade", "--nobest"], work_dir)
+        run_chroot(["chroot", work_dir, distrib["pkgManager"], "clean","all"], work_dir)
+    umount_chroot(work_dir)
 
-    run_chroot(["chroot", work_dir, "apt-get", "clean"])
-    umount_chroot()
 
-
-def install_files():
+def install_files(work_dir, dist):
     list_files_to_install = get_from_config("images", "list_files_to_install", dist)
     if not os.path.isfile(list_files_to_install):
         logging.warning("{0} is not a file!".format(list_files_to_install))
@@ -285,22 +465,26 @@ def install_files():
                 os.chmod(final_file, file_perm)
 
                 if ("etc/init.d" in dest):
-                    run_chroot(["chroot", work_dir, "update-rc.d", orig, "defaults"])
+                    run_chroot(["chroot", work_dir, "update-rc.d", orig, "defaults"], work_dir)
 
     # Empty hostname
-    os.remove(work_dir + "/etc/hostname")
-    run_chroot(["chroot", work_dir, "touch", "/etc/hostname"])
+    hostnamefile = work_dir + "/etc/hostname"
+    if os.path.exists(hostnamefile):
+        os.remove(hostnamefile)
+    run_chroot(["chroot", work_dir, "touch", "/etc/hostname"], work_dir)
 
 
-def remove_files():
+def remove_files(work_dir, dist):
     files_to_remove = get_from_config("images", "files_to_remove", dist).split(',')
     for f in files_to_remove:
         if os.path.isfile(work_dir + "/" + f):
-            os.remove(work_dir + "/" + f)
-    os.remove(work_dir + "/usr/sbin/policy-rc.d")
+            if os.path.exists(work_dir + "/" + f):
+                os.remove(work_dir + "/" + f)
+    if os.path.exists(work_dir + "/usr/sbin/policy-rc.d"):
+        os.remove(work_dir + "/usr/sbin/policy-rc.d")
 
 
-def run_script_post_creation():
+def run_script_post_creation(work_dir, dist):
     script = get_from_config("images", "script_post_image_creation", dist)
     if len(script) == 0:
         logging.warning("script_post_image_creation hasn't be set in the config.ini")
@@ -310,10 +494,10 @@ def run_script_post_creation():
         # Copy the script into the chroot and make sure it's executable
         shutil.copy(script, work_dir + "/tmp/script")
         os.chmod(work_dir + "/tmp/script", 0o755)
-        run_chroot(["chroot", work_dir, "bash", "/tmp/script"])
+        run_chroot(["chroot", work_dir, "bash", "/tmp/script"], work_dir)
 
 
-def genimg(image):
+def genimg(image, work_dir, dist):
     if (image is None):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
@@ -329,9 +513,6 @@ def genimg(image):
             os.makedirs(path_to_image)
         squashfs_file = image
 
-    logging.info("Cleaning APT cache in working directory")
-    run_chroot(["chroot", work_dir, "apt-get", "clean"])
-
     if os.path.isfile(squashfs_file):
         os.rename(squashfs_file, squashfs_file + ".old")
         logging.info("Previous image renamed to {0}.".format(squashfs_file + ".old"))
@@ -339,7 +520,7 @@ def genimg(image):
     logging.info("Creating image at {0}".format(squashfs_file))
 
     if not os.path.exists(os.path.dirname(squashfs_file)):
-        logging.info("Creating local directory path", os.path.dirname(squashfs_file))
+        logging.info("Creating local directory path: %s", os.path.dirname(squashfs_file))
         os.makedirs(os.path.dirname(squashfs_file))
  
     if conf.ddebug:
@@ -360,7 +541,7 @@ def genimg(image):
         sftp_client.upload([squashfs_file], os.path.dirname(squashfs_file), 0o755)
 
 
-def extract_image(image):
+def extract_image(image, dist):
     if (image is None):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
@@ -383,7 +564,11 @@ def extract_image(image):
           "\tclara images repack {0} ( <dist> | --image=<path> )".format(extract_dir))
 
 
-def geninitrd(path):
+def geninitrd(path, work_dir, dist):
+    ID, VERSION_ID = get_osRelease(dist)
+    image = imageInstant(work_dir, ID, VERSION_ID)
+    distrib = image.dist
+
     if (path is None):
         trg_dir = get_from_config("images", "trg_dir", dist)
 
@@ -407,28 +592,41 @@ def geninitrd(path):
     else:
         run(["unsquashfs", "-f", "-d", work_dir, squashfs_file])
 
-    mount_chroot()
+    mount_chroot(work_dir)
 
     # Install the kernel in the image
     kver = get_from_config("images", "kver", dist)
     if len(kver) == 0:
         clara_exit("kver hasn't be set in config.ini")
     else:
-        run_chroot(["chroot", work_dir, "apt-get", "update"])
-        run_chroot(["chroot", work_dir, "apt-get", "install", "--no-install-recommends", "--yes", "--force-yes", "linux-image-" + kver])
+        if ID == "debian":
+            run_chroot(["chroot", work_dir, distrib["pkgManager"], "update"], work_dir)
+            run_chroot(["chroot", work_dir, distrib["pkgManager"], "install",
+                    "--no-install-recommends", "--yes", "--force-yes", "linux-image-" + kver], work_dir)
+        if dists[ID]['bootstrapper'] == "yum":
+            run_chroot(["chroot", work_dir, distrib["pkgManager"], "makecache"], work_dir)
+            run_chroot(["chroot", work_dir, distrib["pkgManager"], "install",
+                    "-y", "--nobest", "kernel-"+ kver], work_dir)
     # Install packages from 'packages_initrd'
     packages_initrd = get_from_config("images", "packages_initrd", dist)
     if len(packages_initrd) == 0:
         logging.warning("packages_initrd hasn't be set in config.ini")
     else:
         pkgs = packages_initrd.split(',')
-        run_chroot(["chroot", work_dir, "apt-get", "install", "--no-install-recommends", "--yes", "--force-yes"] + pkgs)
+        if ID == "debian":
+            opts = ["--no-install-recommends", "--yes", "--force-yes"]
+            intitrd_opts = ["-o", "/tmp/initrd-" + kver, kver]
+        if dists[ID]['bootstrapper'] == "yum":
+            opts = ["-y", "--nobest"]
+            intitrd_opts = ["--force", "--add", "livenet", "-v", "/tmp/initrd-"+ kver, "--kver", kver]
+        opts = ["chroot", work_dir, distrib["pkgManager"], "install"] + opts + pkgs
+        run_chroot(opts, work_dir)
 
     # Generate the initrd in the image
-    run_chroot(["chroot", work_dir, "mkinitramfs", "-o", "/tmp/initrd-" + kver, kver])
+    intitrd_opts = ["chroot", work_dir, distrib["initrdGen"]] + intitrd_opts
+    run_chroot(intitrd_opts, work_dir)
 
-
-    umount_chroot()
+    umount_chroot(work_dir)
 
     # Copy the initrd out of the chroot
     initrd_file = trg_dir + "/initrd-" + kver
@@ -453,7 +651,7 @@ def geninitrd(path):
         sftp_client = sftp.Sftp(sftp_hosts, sftp_user, sftp_private_key, sftp_passphrase)
         sftp_client.upload([initrd_file, vmlinuz_file], trg_dir, 0o644)
 
-def push(image):
+def push(image, dist):
     if (image is None):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
@@ -479,7 +677,7 @@ def push(image):
         clara_exit("Hosts not found for the image {0}".format(squashfs_file))
 
 
-def edit(image):
+def edit(image, work_dir, dist):
     if (image is None):
         squashfs_file = get_from_config("images", "trg_img", dist)
         if (squashfs_file=="" or squashfs_file==None):
@@ -504,7 +702,7 @@ def edit(image):
     os.putenv("PROMPT_COMMAND", "echo -ne  '\e[1;31m({0}) clara images> \e[0m'".format(dist))
     pty.spawn(["/bin/bash"])
 
-    save = raw_input('Save changes made in the image? (N/y)')
+    save = input('Save changes made in the image? (N/y)')
     logging.debug("Input from the user: '{0}'".format(save))
     if save not in ('Y', 'y'):
         clara_exit("Changes ignored. The image {0} hasn't been modified.".format(squashfs_file))
@@ -521,10 +719,10 @@ def edit(image):
           "\nThe image has been repacked at {1}".format(squashfs_file + ".old", squashfs_file))
 
 
-def clean_and_exit():
+def clean_and_exit(work_dir):
     if os.path.exists(work_dir):
-        umount_chroot()
-        if not keep_chroot_dir:
+        umount_chroot(work_dir)
+        if not _opts['keep_chroot_dir']:
             shutil.rmtree(work_dir)
 
 
@@ -532,47 +730,46 @@ def main():
     logging.debug(sys.argv)
     dargs = docopt.docopt(__doc__)
 
-    global keep_chroot_dir
-    keep_chroot_dir = False
-    # Not executed in the following cases
-    # - the program dies because of a signal
-    # - os._exit() is invoked directly
-    # - a Python fatal error is detected (in the interpreter)
-    atexit.register(clean_and_exit)
+    _opts['keep_chroot_dir'] = False
 
-    global dist
     dist = get_from_config("common", "default_distribution")
     if dargs['<dist>'] is not None:
         dist = dargs["<dist>"]
     if dist not in get_from_config("common", "allowed_distributions"):
         clara_exit("{0} is not a know distribution".format(dist))
 
-    global work_dir
+    work_dir = ""
     if dargs['repack']:
         work_dir = dargs['<directory>']
     else:
         tmpdir = get_from_config_or("images", "tmp_dir", dist, "/tmp")
         work_dir = tempfile.mkdtemp(prefix="tmpClara", dir=tmpdir)
 
+    # Not executed in the following cases
+    # - the program dies because of a signal
+    # - os._exit() is invoked directly
+    # - a Python fatal error is detected (in the interpreter)
+    atexit.register(clean_and_exit, work_dir)
+
     if dargs['create']:
         if dargs["--keep-chroot-dir"]:
-            keep_chroot_dir = True
-        base_install()
-        install_files()
-        system_install()
-        remove_files()
-        run_script_post_creation()
-        genimg(dargs['<image>'])
+            _opts['keep_chroot_dir'] = True
+        base_install(work_dir, dist)
+        install_files(work_dir, dist)
+        system_install(work_dir, dist)
+        remove_files(work_dir, dist)
+        run_script_post_creation(work_dir, dist)
+        genimg(dargs['<image>'], work_dir, dist)
     elif dargs['repack']:
-        genimg(dargs['--image'])
+        genimg(dargs['--image'], work_dir, dist)
     elif dargs['unpack']:
-        extract_image(dargs['--image'])
+        extract_image(dargs['--image'], dist)
     elif dargs['initrd']:
-        geninitrd(dargs['--output'])
+        geninitrd(dargs['--output'], work_dir, dist)
     elif dargs['edit']:
-        edit(dargs['<image>'])
+        edit(dargs['<image>'], work_dir, dist)
     elif dargs['push']:
-        push(dargs['<image>'])
+        push(dargs['<image>'], dist)
 
 if __name__ == '__main__':
     main()
