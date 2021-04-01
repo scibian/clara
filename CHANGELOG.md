@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20210401] - 2021-04-01
+
+### Fixed
+- chroot: fix tedious shell glitches in clara chroot using real shell
+
+## [0.20210305] - 2021-03-05
+
+### Fixed
+- ipmi: make sure the escape sequence is the same whether or not a jump host is used
+- ipmi: use localhost as the conman destination when using a jump host
+- ipmi: fix a missing import
+
+## [0.20210224] - 2021-02-24
+
+### Added
+- ipmi: Option to use an ssh connexion as a relay to the conman server, set to true by default
+- images: ensure user's read access to /var/lib/rpm on rhel-based generated images
+
 ## [0.20201203] - 2020-12-03
 
 ### Fixed
