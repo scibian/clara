@@ -1,3 +1,10 @@
+clara (0.20210401-0sci9u2) scibian9; urgency=medium
+
+  * Bump compat to 9
+  * Fix format in d/changelog (missing whitespace)
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Fri, 16 Apr 2021 09:41:25 +0200
+
 clara (0.20210401-0sci9u1) scibian9; urgency=medium
 
   * New upstream release 0.20210401
