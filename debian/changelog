@@ -1,3 +1,9 @@
+clara (0.20210401-0sci8u2) scibian8; urgency=medium
+
+  * Fix format in d/changelog
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Fri, 16 Apr 2021 09:45:10 +0200
+
 clara (0.20210401-0sci8u1) scibian8; urgency=medium
 
   * New upstream release 0.20210401
