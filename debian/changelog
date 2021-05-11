@@ -1,3 +1,9 @@
+clara (0.20210401-0sci9u3) scibian9; urgency=medium
+
+  * Fix pydist-overrides for python-libvirt
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Tue, 11 May 2021 15:49:57 +0200
+
 clara (0.20210401-0sci9u2) scibian9; urgency=medium
 
   * Bump compat to 9
