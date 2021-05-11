@@ -3,9 +3,10 @@ Section: net
 Priority: optional
 Maintainer: Scibian Project <packaging@scibian.org>
 Build-Depends:
- debhelper (>= 8),
- python-all,
- python-setuptools,
+ debhelper (>= 9),
+ dh-python,
+ python3-all,
+ python3-setuptools,
  pandoc,
  bash-completion,
  texlive-latex-base,
@@ -13,7 +14,6 @@ Build-Depends:
  lmodern,
  texlive-fonts-recommended
 Standards-Version: 3.9.1
-X-Python-Version: >= 2.7
 Homepage: https://github.com/edf-hpc/clara
 Vcs-Git: https://github.com/scibian/clara.git
 Vcs-Browser: https://github.com/scibian/clara
@@ -24,9 +24,9 @@ Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Depends:
  ${misc:Depends},
- ${python:Depends},
+ ${python3:Depends},
  python-docopt,
- clustershell (>= 1.7)
+ python3-clustershell
 Description: Cluster administration tools core engine
  Clara is a set of tools to help administering and installing clusters.
  .
@@ -36,6 +36,7 @@ Package: clara-plugin-build
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
  cowbuilder
 Breaks: clara (<< 0.20180123)
@@ -49,6 +50,7 @@ Package: clara-plugin-chroot
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
  debootstrap,
  squashfs-tools
@@ -63,6 +65,7 @@ Package: clara-plugin-enc
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
@@ -75,10 +78,11 @@ Package: clara-plugin-images
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
  debootstrap,
  squashfs-tools,
- python-paramiko
+ python3-paramiko
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Description: Cluster administration tools images plugin
@@ -90,6 +94,7 @@ Package: clara-plugin-ipmi
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
  fping,
  ipmitool,
@@ -105,9 +110,10 @@ Package: clara-plugin-p2p
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
  mktorrent,
- python-paramiko,
+ python3-paramiko,
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Description: Cluster administration tools p2p plugin
@@ -119,6 +125,7 @@ Package: clara-plugin-repo
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
  reprepro,
  gnupg,
@@ -135,6 +142,7 @@ Package: clara-plugin-slurm
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
  slurm-client
 Breaks: clara (<< 0.20180123)
@@ -148,10 +156,11 @@ Package: clara-plugin-virt
 Architecture: all
 Depends:
  ${misc:Depends},
+ ${python3:Depends},
  clara-core (= ${source:Version}),
- python-libvirt,
- python-jinja2,
- python-humanize
+ python3-libvirt,
+ python3-jinja2,
+ python3-humanize
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Description: Cluster administration tools virt plugin
@@ -162,14 +171,15 @@ Description: Cluster administration tools virt plugin
 Package: clara-plugin-show
 Architecture: all
 Depends:
-  ${misc:Depends},
-  clara-core (= ${source:Version}),
+ ${misc:Depends},
+ ${python3:Depends},
+ clara-core (= ${source:Version}),
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Description: Cluster administration tools show plugin
-  Clara is a set of tools to help administering and installing clusters.
-  .
-  This package provides the virt plugin of Clara.
+ Clara is a set of tools to help administering and installing clusters.
+ .
+ This package provides the virt plugin of Clara.
 
 Package: clara
 Architecture: all
