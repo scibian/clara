@@ -1,3 +1,10 @@
+clara (0.20210511-0sci9u1) scibian9; urgency=medium
+
+  * New upstream release
+  * Port packaging to python3
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Tue, 11 May 2021 22:49:00 +0200
+
 clara (0.20210401-0sci9u3) scibian9; urgency=medium
 
   * Fix pydist-overrides for python-libvirt
