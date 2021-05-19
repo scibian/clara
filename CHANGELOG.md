@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20200106.2] - 2021-05-19
+### Fixed
+- chroot: fix tedious shell glitches in clara chroot using real shell
+## Added
+- ipmi: provide an ssh_jump_host configuration option for connect
+
 ## [0.20200106.1] - 2020-10-20
 
 ### Fixed
