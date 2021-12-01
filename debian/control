@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Scibian Project <packaging@scibian.org>
 Build-Depends:
- debhelper (>= 9),
+ debhelper (>= 10),
  dh-python,
  python3-all,
  python3-setuptools,
