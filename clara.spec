@@ -4,7 +4,7 @@
 # Main preamble
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
-Version: 0.20201015
+Version: 0.20220125
 Release:  1%{?dist}.edf
 Source0: %{name}-%{version}.tar.gz
 License: GPLv3
@@ -262,6 +262,12 @@ Clara is a set of tools to help administering and installing clusters.
 
 
 %changelog
+* Tue Jan 25 2022 Rémi Palancher <remi-externe.palancher@edf.fr> 0.20220125-1el8.edf
+- New upstream release 0.20220125
+- Fix bogus date in changelog
+- Add missing build requires on latex font for PDF doc
+- Fix install paths of docs
+
 * Thu Oct 15 2020 M'hamed Bouaziz <mhamed-extern.bouaziz@edf.fr> 0.20201015-1el8.edf
 - Fix symlink bug during image creation
 - Fix raw_input bug in python3
