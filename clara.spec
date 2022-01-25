@@ -13,7 +13,7 @@ Prefix: %{_prefix}
 Vendor: EDF CCN HPC <dsp-cspito-ccn-hpc@edf.fr>
 Url: https://github.com/scibian/%{__name}
 
-BuildRequires: git python36 python3-setuptools pandoc texlive-latex
+BuildRequires: git python36 python3-setuptools pandoc texlive-latex texlive-collection-fontsrecommended
 Requires: clara-core clara-plugin-chroot clara-plugin-enc
 Requires: clara-plugin-images clara-plugin-ipmi clara-plugin-p2p
 Requires: clara-plugin-show clara-plugin-repo clara-plugin-slurm
