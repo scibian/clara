@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+## [0.20220125] - 2022-01-25
+
+### Added
+- utils: add functions to get OS information
+- enc: enable key derivation except on debian<=9
+- images: support GPG keyring in RPM/dnf repos
+
+### Fixed
+- all: fix python3 port by replacing raw\_input() with input()
+- enc: use $EDITOR and $PAGER instead of sensible-\* debianisms
+- images: bind-mount /run in chroot if it is a mount point to support more packages installations
+- images: remove duplicate yum repos conf generation
+- enc: avoid spurious msg for default digest type
+
+## [0.20210511] - 2021-05-11
+
+### Fixed
+- chroot: fix tedious shell glitches in clara chroot using real shell
+- chroot: fix stupid variable name error
+
+## [0.20210305] - 2021-03-05
+
+### Fixed
+- ipmi: make sure the escape sequence is the same whether or not a jump host is used
+- ipmi: use localhost as the conman destination when using a jump host
+- ipmi: fix a missing import
+
+## [0.20210224] - 2021-02-24
+
+### Added
+- ipmi: Option to use an ssh connexion as a relay to the conman server, set to true by default
+- images: ensure user's read access to /var/lib/rpm on rhel-based generated images
+
+## [0.20201203] - 2020-12-03
+
+### Fixed
+
+- images: Improve Yum/DNF support
+- repo: control digest used to decode repos signature key
+
 ## [0.20201015] - 2020-10-15
 
 ### Fixed
