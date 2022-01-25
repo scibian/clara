@@ -164,7 +164,7 @@ def list_all_repos(dist):
 	list_repos = list_repos_nonsplitted.split(separator)
 	return list_repos
 
-def set_yum_src_file(src_list, baseurl, gpgcheck, sources, list_repos = None):
+def set_yum_src_file(src_list, baseurl, gpgcheck, gpgkey, sources, list_repos = None):
     if not baseurl.endswith('/'):
          baseurl = baseurl + '/'
     dir_path = os.path.dirname(os.path.realpath(src_list))
@@ -173,19 +173,37 @@ def set_yum_src_file(src_list, baseurl, gpgcheck, sources, list_repos = None):
         os.remove(f)
     f = open(src_list, "w")
     for source_name in sources.keys():
-        lines = []
         name = "bootstrap_" + source_name
         base_url = baseurl + sources[source_name]['subdir']
-        lines = ["["+name+"]","name="+name,"enabled=1","gpgcheck="+str(gpgcheck),"baseurl="+base_url,"sslverify=0\n",]
+        lines = ["["+name+"]",
+                 "name="+name,
+                 "enabled=1",
+                 "gpgcheck="+str(gpgcheck),
+                 "gpgkey=file://"+gpgkey,
+                 "baseurl="+base_url,
+                 "sslverify=0\n",]
         lines = "\n".join(lines)
+        logging.debug("Added yum repo in file %s:\n%s", src_list, lines)
         f.writelines(lines)
     indice = 0
     for repo in list_repos:
-        lines = []
+        repo_gpg_key = None
+        if '|' in repo:
+            (repo, repo_gpg_key) = repo.split('|')
         name = "bootstrap_repo_" + str(indice)
-        lines = ["["+name+"]","name="+name,"enabled=1","gpgcheck="+str(gpgcheck),"baseurl="+repo,"sslverify=0\n",]
+        lines = ["["+name+"]",
+                 "name="+name,
+                 "enabled=1",
+                 "baseurl="+repo,
+                 "sslverify=0\n",]
+        if repo_gpg_key:
+            lines[3:3] = ["gpgcheck=true", "gpgkey=file://"+repo_gpg_key]
+        else:
+            lines.insert(3, "gpgcheck=false")
         lines = "\n".join(lines)
         f.writelines(lines)
+        logging.debug("Added yum repo in %s:\n%s", src_list, lines)
+
         indice += 1
     f.close()
 
@@ -240,7 +258,7 @@ def base_install(work_dir, dist):
     image.bootstrapper(opts)
     if dists[ID]['pkgManager'] == "yum":
         list_repos = list_all_repos(dist)
-        set_yum_src_file(src_list, baseurl, gpg_check, dists[ID]['sources'], list_repos)
+        set_yum_src_file(src_list, baseurl, gpg_check, gpg_keyring, dists[ID]['sources'], list_repos)
 
     if dists[ID]['pkgManager'] == "apt-get":
         # Prevent services from starting automatically
@@ -311,6 +329,8 @@ path-include=/usr/share/locale/locale.alias
 def mount_chroot(work_dir):
     run(["chroot", work_dir, "mount", "-t", "proc", "none", "/proc"])
     run(["chroot", work_dir, "mount", "-t", "sysfs", "none", "/sys"])
+    if os.path.ismount("/run"):
+        run(["mount", "-o", "bind", "/run", os.path.join(work_dir, "run")])
     if not os.path.exists(work_dir+"/dev/random"):
         run(["mknod", "-m", "444", work_dir + "/dev/random", "c", "1", "8"])
     if not os.path.exists(work_dir+"/dev/urandom"):
@@ -326,6 +346,10 @@ def umount_chroot(work_dir):
 
     if os.path.ismount(work_dir + "/proc"):
         run(["chroot", work_dir, "umount","-lf", "/proc"])
+
+    if os.path.ismount(work_dir + "/run"):
+        run(["umount","-lf", os.path.join(work_dir, "run")])
+
     time.sleep(1)  # Wait one second so the system has time to unmount
     with open("/proc/mounts", "r") as file_to_read:
         for line in file_to_read:
@@ -411,11 +435,6 @@ def system_install(work_dir, dist):
 
     # Manage groupinstall for centos
     if dists[ID]['pkgManager'] == "yum":
-        src_list = work_dir + distrib["src_list"]
-        baseurl = get_from_config("images", "baseurl", dist)
-        gpg_check = get_from_config("images", "gpg_check", dist)
-        list_repos = list_all_repos(dist)
-        set_yum_src_file(src_list, baseurl, gpg_check, dists[ID]['sources'], list_repos)
         group_pkgs = get_from_config("images", "group_pkgs", dist)
         if len(group_pkgs) == 0:
             logging.warning("group_pkgs hasn't be set in the config.ini")
@@ -433,7 +452,7 @@ def system_install(work_dir, dist):
         if not os.path.islink(work_dir + '/var/run'):
             shutil.rmtree(work_dir + "/var/run")
             run_chroot(["chroot", work_dir, "ln", "-s", "../run", "/var/run"], work_dir)
-        run_chroot(["chroot", work_dir, distrib["pkgManager"], "upgrade", "--nobest"], work_dir)
+        run_chroot(["chroot", work_dir, distrib["pkgManager"], "upgrade", "-y", "--nobest"], work_dir)
         run_chroot(["chroot", work_dir, distrib["pkgManager"], "clean","all"], work_dir)
     umount_chroot(work_dir)
 
