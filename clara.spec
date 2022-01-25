@@ -269,7 +269,7 @@ Clara is a set of tools to help administering and installing clusters.
 - Fix symlink bug during image creation
 - Fix raw_input bug in python3
 
-* Wed Oct 08 2020 M'hamed Bouaziz <mhamed-extern.bouaziz@edf.fr> 0.20201008-1el8.edf
+* Thu Oct 08 2020 M'hamed Bouaziz <mhamed-extern.bouaziz@edf.fr> 0.20201008-1el8.edf
 - New upstream version 0.20201008
 - Fix upstream import prefix fault
 - Fix doc installation 
