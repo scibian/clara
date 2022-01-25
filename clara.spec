@@ -43,9 +43,7 @@ install -d %{buildroot}/etc/clara
 install -d %{buildroot}/etc/clara/templates/vm
 install -d %{buildroot}/etc/clara/templates/volume
 install -d %{buildroot}/etc/bash_completion.d
-install -d %{buildroot}/docs
-cp docs/users_guide.pdf %{buildroot}/docs/
-cp -r docs/man %{buildroot}/docs/
+install -D -m 644 -t %{buildroot}%{_mandir}/man1 docs/man/*
 install -m 644 example-conf/config.ini %{buildroot}/etc/clara
 install -m 644 example-conf/virt.ini %{buildroot}/etc/clara
 install -m 644 contribs/bash-completion %{buildroot}/etc/bash_completion.d/clara
@@ -175,8 +173,8 @@ Clara is a set of tools to help administering and installing clusters.
 %files core
 %defattr(-,root,root,-)
 %doc README.md
-%doc /docs/users_guide.pdf
-%doc /docs/man/clara.1
+%doc docs/users_guide.pdf
+%doc %{_mandir}/man1/clara.1.gz
 %config /etc/clara/config.ini
 /etc/bash_completion.d/clara
 /usr/bin/clara
@@ -190,7 +188,7 @@ Clara is a set of tools to help administering and installing clusters.
 # plugin-build
 %files plugin-build
 %defattr(-,root,root,-)
-%doc /docs/man/clara-build.1
+%doc %{_mandir}/man1/clara-build.1.gz
 %{python3_sitelib}/clara/plugins/clara_build.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_build.*
 
@@ -198,63 +196,63 @@ Clara is a set of tools to help administering and installing clusters.
 # plugin-chroot
 %files plugin-chroot
 %defattr(-,root,root,-)
-%doc /docs/man/clara-chroot.1
+%doc %{_mandir}/man1/clara-chroot.1.gz
 %{python3_sitelib}/clara/plugins/clara_chroot.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_chroot.*
 
 # plugin-enc
 %files plugin-enc
 %defattr(-,root,root,-)
-%doc /docs/man/clara-enc.1
+%doc %{_mandir}/man1/clara-enc.1.gz
 %{python3_sitelib}/clara/plugins/clara_enc.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_enc.*
 
 # plugin-images
 %files plugin-images
 %defattr(-,root,root,-)
-%doc /docs/man/clara-images.1
+%doc %{_mandir}/man1/clara-images.1.gz
 %{python3_sitelib}/clara/plugins/clara_images.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_images.*
 
 # plugin-ipmi
 %files plugin-ipmi
 %defattr(-,root,root,-)
-%doc /docs/man/clara-ipmi.1
+%doc %{_mandir}/man1/clara-ipmi.1.gz
 %{python3_sitelib}/clara/plugins/clara_ipmi.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_ipmi.*
 
 # plugin-p2p
 %files plugin-p2p
 %defattr(-,root,root,-)
-%doc /docs/man/clara-p2p.1
+%doc %{_mandir}/man1/clara-p2p.1.gz
 %{python3_sitelib}/clara/plugins/clara_p2p.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_p2p.*
 
 # plugin-show
 %files plugin-show
 %defattr(-,root,root,-)
-%doc /docs/man/clara-show.1
+%doc %{_mandir}/man1/clara-show.1.gz
 %{python3_sitelib}/clara/plugins/clara_show.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_show.*
 
 # plugin-repo
 %files plugin-repo
 %defattr(-,root,root,-)
-%doc /docs/man/clara-repo.1
+%doc %{_mandir}/man1/clara-repo.1.gz
 %{python3_sitelib}/clara/plugins/clara_repo.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_repo.*
 
 # plugin-slurm
 %files plugin-slurm
 %defattr(-,root,root,-)
-%doc /docs/man/clara-slurm.1
+%doc %{_mandir}/man1/clara-slurm.1.gz
 %{python3_sitelib}/clara/plugins/clara_slurm.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_slurm.*
 
 # plugin-virt
 %files plugin-virt
 %defattr(-,root,root,-)
-%doc /docs/man/clara-virt.1
+%doc %{_mandir}/man1/clara-virt.1.gz
 %{python3_sitelib}/clara/plugins/clara_virt.py
 %{python3_sitelib}/clara/virt
 %{python3_sitelib}/clara/plugins/__pycache__/clara_virt.*
