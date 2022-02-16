@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 ##############################################################################
-#  Copyright (C) 2014-2016 EDF SA                                            #
+#  Copyright (C) 2014-2022 EDF SA                                            #
 #                                                                            #
 #  This file is part of Clara                                                #
 #                                                                            #
@@ -52,7 +52,7 @@ import tempfile
 
 import docopt
 
-from clara.utils import clara_exit, get_from_config, get_from_config_or, value_from_file
+from clara.utils import clara_exit, get_from_config, get_from_config_or, value_from_file, os_distribution, os_major_version
 
 
 # In the future, this function will get the key using several method,
@@ -74,35 +74,59 @@ def get_encryption_key():
 # Default digest type is sha256 in case of undefined or invalid type
 def get_digest_type():
 
-    digest = get_from_config_or("common", "digest_type")
-    if digest == "":
-        logging.warning("Digest type not defined")
-        logging.info("Using default digest type: sha256")
-        digest = "sha256"
+    digest = get_from_config_or("common", "digest_type", default=None)
+    default = "sha256"
+    if digest is None:
+        logging.debug("Digest type not defined in configuration, using default {0}".format(default))
+        return default
     elif digest not in ['md2', 'md5', 'mdc2', 'rmd160', 'sha', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512']:
-        logging.warning("Invalid digest type : {0}".format(digest))
-        logging.info("Using default digest type: sha256 ")
-        digest = "sha256"
+        logging.warning("Invalid digest type {0}, using default {1}".format(digest, default))
+        return default
     return digest
 
-def do(op, origfile):
+# Returns a boolean to tell if password derivation can be used with OpenSSL.
+# It is disabled on Debian < 10 (eg. in stretch) because it is not supported by
+# openssl provided in these old distributions.
+#
+# This code can be safely removed when Debian 9 stretch support is dropped.
+def enable_password_derivation():
+
+    return os_distribution() != 'debian' or os_major_version() > 9
+
+# Return the openssl command to proceed with operation op, with or without key
+# derivation.
+def enc_cmd(origfile, outfile, decrypt=False):
+
     password = get_encryption_key()
     digest = get_digest_type()
-    f = tempfile.NamedTemporaryFile(prefix="tmpClara")
 
-    if op == "decrypt":
-        cmd = ['openssl', 'aes-256-cbc', '-md', digest, '-d', '-in', origfile, '-out', f.name, '-k', password]
-    elif op == "encrypt":
-        cmd = ['openssl', 'aes-256-cbc', '-md', digest, '-in', origfile, '-out', f.name, '-k', password]
+    cmd = ['openssl', 'enc', '-aes-256-cbc', '-md', digest, '-in', origfile, '-out', outfile, '-k', password]
+
+    if decrypt:
+        cmd.insert(3, '-d')
+    if enable_password_derivation():
+        # The number of iterations is hard-coded as it must be changed
+        # synchronously on both clara and puppet-hpc for seamless handling of
+        # encrypted files. It is set explicitely to avoid relying on openssl
+        # default value and being messed by sudden change of this default
+        # value.
+        cmd[3:3] = ['-iter', '+100000', '-pbkdf2' ]
 
     cmd_log = cmd[:-1] + ["Password"]
-    logging.debug("enc/do: {0}".format(" ".join(cmd_log)))
+    logging.debug("enc/enc_cmd: {0}".format(" ".join(cmd_log)))
 
-    retcode = subprocess.call(cmd)
+    return cmd
 
-    if retcode != 0:
+
+def do(op, origfile):
+    f = tempfile.NamedTemporaryFile(prefix="tmpClara")
+    cmd = enc_cmd(origfile, f.name, op=='decrypt')
+
+    proc = subprocess.run(cmd, stderr=subprocess.PIPE)
+
+    if proc.returncode != 0:
         f.close()
-        clara_exit('Command failed {0}'.format(" ".join(cmd_log)))
+        clara_exit('Unable to decrypt file {0}: {1}'.format(origfile, proc.stderr))
     else:
         return f
 
@@ -114,7 +138,8 @@ def do_edit(origfile):
     else:
         editfile = tempfile.NamedTemporaryFile(prefix="tmpClara")
 
-    subprocess.call(['sensible-editor', editfile.name])
+    editor = os.getenv('EDITOR', 'vim')
+    subprocess.call([editor, editfile.name])
     finalfile = do("encrypt", editfile.name)
     shutil.copy(finalfile.name, origfile)
     editfile.close()
@@ -137,7 +162,8 @@ def main():
 
     if dargs['show']:
         f = do("decrypt", dargs['<file>'])
-        subprocess.call(['sensible-pager', f.name])
+        pager = os.getenv('PAGER', 'less')
+        subprocess.call([pager, f.name])
         f.close()
     elif dargs['edit']:
         do_edit(dargs['<file>'])
