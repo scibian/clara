@@ -1,4 +1,4 @@
-clara (0.20210112-0sci10u1) scibian10; urgency=medium
+clara (0.20211201-0sci10u1) scibian10; urgency=medium
 
   * Port packaging to buster/python3
 
