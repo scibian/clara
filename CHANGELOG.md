@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20221026] - 2022-10-26
+
+### Added
+- images: support optional dnf/yum priorities in list\_repos
+
+### Fixed
+- images: fix format of dists hash and centos/rhel sources loop for appstream
+- images: fix group/extra packages installation order
+
+### Changed
+- images: bootstrap RPM images with generated dnf/yum repos files
+
 ## [0.20220125] - 2022-01-25
 
 ### Added
