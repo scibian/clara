@@ -65,39 +65,37 @@ _opts = {'keep_chroot_dir': None}
 
 
 dists = {
-   "debian": {
-     "pkgManager": "apt-get",
-     "src_list": "/etc/apt/sources.list",
-     "apt_pref": "/etc/apt/preferences.d/00custompreferences",
-     "apt_conf": "/etc/apt/apt.conf.d/99nocheckvalid",
-     "dpkg_conf": "/etc/dpkg/dpkg.cfg.d/excludes",
-     "bootstrapper": "debootstrap",
-     "initrdGen": "mkinitramfs"
-  },
-   "centos": {
-     "pkgManager": "yum",
-     "src_list": "/etc/yum.repos.d/centos.repo",
-     "rpm_lib": "/var/lib/rpm",
-     "bootstrapper": "yum",
-     "initrdGen": "dracut",
-     "sources": {
-          'baseos': {'subdir': 'BaseOS/x86_64/os',
-          'appstream': {'subdir': 'AppStream/x86_64/os' }
+    "debian": {
+        "pkgManager": "apt-get",
+        "src_list": "/etc/apt/sources.list",
+        "apt_pref": "/etc/apt/preferences.d/00custompreferences",
+        "apt_conf": "/etc/apt/apt.conf.d/99nocheckvalid",
+        "dpkg_conf": "/etc/dpkg/dpkg.cfg.d/excludes",
+        "bootstrapper": "debootstrap",
+        "initrdGen": "mkinitramfs"
+    },
+    "centos": {
+        "pkgManager": "yum",
+        "src_list": "/etc/yum.repos.d/centos.repo",
+        "rpm_lib": "/var/lib/rpm",
+        "bootstrapper": "yum",
+        "initrdGen": "dracut",
+        "sources": {
+            'baseos': {'subdir': 'BaseOS/x86_64/os' },
+            'appstream': {'subdir': 'AppStream/x86_64/os' }
         }
-     }
-  },
-   "rhel": {
-     "pkgManager": "yum",
-     "src_list": "/etc/yum.repos.d/rhel.repo",
-     "rpm_lib": "/var/lib/rpm",
-     "bootstrapper": "yum",
-     "initrdGen": "dracut",
-     "sources": {
-          'baseos': {'subdir': 'BaseOS',
-          'appstream': {'subdir': 'AppStream' }
+    },
+    "rhel": {
+        "pkgManager": "yum",
+        "src_list": "/etc/yum.repos.d/rhel.repo",
+        "rpm_lib": "/var/lib/rpm",
+        "bootstrapper": "yum",
+        "initrdGen": "dracut",
+        "sources": {
+            'baseos': {'subdir': 'BaseOS' },
+            'appstream': {'subdir': 'AppStream' }
         }
-     }
-  }
+    }
 }
 
 
@@ -188,15 +186,32 @@ def set_yum_src_file(src_list, baseurl, gpgcheck, gpgkey, sources, list_repos = 
     indice = 0
     for repo in list_repos:
         repo_gpg_key = None
+        priority = None
         if '|' in repo:
-            (repo, repo_gpg_key) = repo.split('|')
+            repo_opts = repo.split('|')
+            repo = repo_opts[0]
+            # GPG key is optional, check it is not empty
+            if len(repo_opts[1]):
+                repo_gpg_key = repo_opts[1]
+            # Priority field is optional, check it is present and not empty.
+            if len(repo_opts) > 2 and len(repo_opts[2]):
+                try:
+                    priority = int(repo_opts[2])
+                except ValueError:
+                    logging.warning("Ignoring invalid format of repo %s priority '%s'", repo, repo_opts[2])
+
+
         name = "bootstrap_repo_" + str(indice)
         lines = ["["+name+"]",
                  "name="+name,
                  "enabled=1",
                  "baseurl="+repo,
                  "sslverify=0\n",]
-        if repo_gpg_key:
+        # Add priority setting if defined
+        if priority is not None:
+            lines.insert(4, "priority="+str(priority))
+        # Add GPG keyring settings if defined
+        if repo_gpg_key is not None:
             lines[3:3] = ["gpgcheck=true", "gpgkey=file://"+repo_gpg_key]
         else:
             lines.insert(3, "gpgcheck=false")
@@ -232,11 +247,16 @@ def base_install(work_dir, dist):
         minimal_packages_list = [ 'yum', 'util-linux', 'shadow-utils', 'glibc-minimal-langpack' ]
         rpm_lib = work_dir + distrib["rpm_lib"]
         baseurl = get_from_config("images", "baseurl", dist)
+
+        # Temporarily change umask to create directories of dnf/yum repos and initialize RPM db
         umask = os.umask(0o022)
+        repos_dir = os.path.join(work_dir,'etc','yum.repos.d')
+        os.makedirs(repos_dir)
         os.makedirs(rpm_lib)
         run(["rpm", "--root", work_dir ,"-initdb"])
-        os.umask(umask)
-        opts = ["install", "-y", "--nobest", "--installroot=" + work_dir] + minimal_packages_list
+        os.umask(umask)  # Restore umask
+
+        opts = ["install", "-y", "--nobest", "--installroot=" + work_dir, "--setopt=reposdir="+repos_dir] + minimal_packages_list
 
     if conf.ddebug:
         opts = ["--verbose"] + opts
@@ -255,10 +275,12 @@ def base_install(work_dir, dist):
     if conf.ddebug:
         opts.insert(1, "--verbose")
 
-    image.bootstrapper(opts)
     if dists[ID]['pkgManager'] == "yum":
-        list_repos = list_all_repos(dist)
-        set_yum_src_file(src_list, baseurl, gpg_check, gpg_keyring, dists[ID]['sources'], list_repos)
+        # generate dnf/yum repos files in work_dir
+        set_yum_src_file(src_list, baseurl, gpg_check, gpg_keyring, dists[ID]['sources'], list_all_repos(dist))
+
+    # run the bootstrap
+    image.bootstrapper(opts)
 
     if dists[ID]['pkgManager'] == "apt-get":
         # Prevent services from starting automatically
@@ -418,6 +440,15 @@ def system_install(work_dir, dist):
                 run_chroot(["chroot", work_dir, "apt-get", "dselect-upgrade", "-u", "--yes", "--force-yes"],
                            work_dir)
 
+    # Manage groupinstall for centos
+    if dists[ID]['pkgManager'] == "yum":
+        group_pkgs = get_from_config("images", "group_pkgs", dist)
+        if len(group_pkgs) == 0:
+            logging.warning("group_pkgs hasn't be set in the config.ini")
+        else:
+            group_pkgs = group_pkgs.split(",")
+            run_chroot(["chroot", work_dir, distrib["pkgManager"], "groupinstall", "-y", "--nobest"] + group_pkgs, work_dir)
+
     # Install extra packages if extra_packages_image has been set in config.ini
     extra_packages_image = get_from_config("images", "extra_packages_image", dist)
     if len(extra_packages_image) == 0:
@@ -432,15 +463,6 @@ def system_install(work_dir, dist):
         opts = ["chroot", work_dir, distrib["pkgManager"], "install"] + opts + pkgs 	        
         run_chroot(opts,
                    work_dir)
-
-    # Manage groupinstall for centos
-    if dists[ID]['pkgManager'] == "yum":
-        group_pkgs = get_from_config("images", "group_pkgs", dist)
-        if len(group_pkgs) == 0:
-            logging.warning("group_pkgs hasn't be set in the config.ini")
-        else:
-            group_pkgs = group_pkgs.split(",")
-            run_chroot(["chroot", work_dir, distrib["pkgManager"], "groupinstall", "-y", "--nobest"] + group_pkgs, work_dir)
 
     # Finally, make sure the base image is updated with all the new versions
     if ID == "debian":
