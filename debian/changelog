@@ -1,3 +1,13 @@
+clara (0.20221222-0sci10u1) scibian10; urgency=medium
+
+  [ Rémi Palancher ]
+  * New upstream version 0.20221026
+
+  [ Kwame Amedodji ]
+  * New upstream version 0.20221222
+
+ -- Kwame Amedodji <kwame-externe.amedodji@edf.fr>  Thu, 22 Dec 2022 15:02:37 +0100
+
 clara (0.20220125-0sci10u1) scibian10; urgency=medium
 
   * fix typo error in release name
