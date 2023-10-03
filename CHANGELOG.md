@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20231003] - 2023-10-03
+
+### Added
+- images: add support to dnf through proxy
+- images: support unexistent gpg_keyring creation
+- images: add support to redhat like distribution
+
+### Fixed
+- images: fix dns name resolution issue in chroot
+
+### Changed
+- config: update default redhat like distribution
+- docs: add support to redhat like distribution
+
+## [0.20230103] - 2023-01-03
+
+### Fixed
+- images: create local directories for squashfs with mode 0o0755 recursively
+  whatever the current umask (#136).
+- p2p: enforce mode 0644 on SFTP pushed torrent file (#137).
+- sftp: create remote directory with mode 755 by default to avoid umask effect.
+
 ## [0.20221222] - 2022-12-22
 
 ### Added
