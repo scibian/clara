@@ -1,3 +1,16 @@
+clara (0.20231109-0sci10u1) scibian10; urgency=medium
+
+  [ Rémi Palancher ]
+  * New upstream version 0.20230103
+
+  [ Kwame Amedodji ]
+  * New upstream version 0.20231003
+
+  [ KWAME AMEDODJI ]
+  * New upstream version 0.20231109
+
+ -- KWAME AMEDODJI <kwame-externe.amedodji@edf.fr>  Tue, 14 Nov 2023 12:55:28 +0100
+
 clara (0.20221222-0sci10u1) scibian10; urgency=medium
 
   [ Rémi Palancher ]
