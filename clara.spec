@@ -5,7 +5,7 @@
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
 Version: 0.20231201
-Release:  1%{?dist}.edf
+Release:  2%{?dist}.edf
 Source0: %{name}-%{version}.tar.gz
 License: GPLv3
 Group: Application/System
@@ -278,6 +278,9 @@ Clara is a set of tools to help administering and installing clusters.
 
 
 %changelog
+* Fri Dec 01 2023 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20231201-2el8.edf
+- introduce yet another redfish plugin
+
 * Fri Dec 01 2023 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20231201-1el8.edf
 - New upstream release 0.20231201
 
