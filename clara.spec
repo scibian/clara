@@ -185,7 +185,7 @@ Clara is a set of tools to help administering and installing clusters.
 %doc README.md
 %doc docs/users_guide.pdf
 %doc %{_mandir}/man1/clara.1.gz
-%config /etc/clara/config.ini
+%config(noreplace) /etc/clara/config.ini
 /etc/bash_completion.d/clara
 /usr/bin/clara
 %{python3_sitelib}/clara/*.py
@@ -266,9 +266,9 @@ Clara is a set of tools to help administering and installing clusters.
 %{python3_sitelib}/clara/plugins/clara_virt.py
 %{python3_sitelib}/clara/virt
 %{python3_sitelib}/clara/plugins/__pycache__/clara_virt.*
-/etc/clara/virt.ini
-/etc/clara/templates/vm/default.xml
-/etc/clara/templates/volume/default.xml
+%config(noreplace) /etc/clara/virt.ini
+%config(noreplace) /etc/clara/templates/vm/default.xml
+%config(noreplace) /etc/clara/templates/volume/default.xml
 
 # plugin-redfish
 %files plugin-redfish
