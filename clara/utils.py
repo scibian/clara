@@ -44,6 +44,10 @@ import platform
 import ClusterShell.NodeSet
 import ClusterShell.Task
 
+import json
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import requests
+
 import distutils
 from distutils import util
 
@@ -57,6 +61,99 @@ class Conf:
 # global runtime Conf object
 conf = Conf()
 
+class Colorizer(object):
+
+    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+
+    @staticmethod
+    def colorize(string, color, bold=True, background=True):
+        s_bold = ''
+        if bold:
+            s_bold = '1;'
+        if background:
+            return("\x1b[" + s_bold + "%dm" % (40+color) + string + "\x1b[0m")
+        else:
+            return("\x1b[" + s_bold + "%dm" % (30+color) + string + "\x1b[0m")
+
+    @staticmethod
+    def yellow(string, bold=True, background=True, color=False):
+        if color or string == '':
+            return Colorizer.colorize(string, Colorizer.YELLOW, bold, background)
+        else:
+            return string
+
+    @staticmethod
+    def green(string, bold=True, background=True, color=False):
+        if color or string == '':
+            return Colorizer.colorize(string, Colorizer.GREEN, bold, background)
+        else:
+            return string
+
+    @staticmethod
+    def blue(string, bold=True, background=True, color=False):
+        if color or string == '':
+            return Colorizer.colorize(string, Colorizer.BLUE, bold, background)
+        else:
+            return string
+
+    @staticmethod
+    def red(string, bold=True, background=True, color=False):
+        if color or string == '':
+            return Colorizer.colorize(string, Colorizer.RED, bold, background)
+        else:
+            return string
+
+def yes_or_no(question, default="no"):
+    """ Ask a yes/no question via input() and return their answer.
+    """
+
+    valid = {"yes": True, "y": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("Invalid default answer: '{0}'".format(default))
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
+
+
+def get_response(url, endpoint, headers, data=None, method=None, verify=False):
+    try:
+        if data == None and method == None:
+            method = 'GET'
+        elif method == None:
+            method = 'POST'
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+        response = requests.request(url=url + endpoint, auth=headers, json=data, method=method, timeout=5, verify=verify)
+        response.raise_for_status()
+        try:
+            return response.json()
+        except ValueError as e:
+            return response
+    except requests.exceptions.HTTPError as errh:
+        print(errh)
+        sys.exit(1)
+    except requests.exceptions.ConnectionError as errc:
+        print(errc)
+        sys.exit(1)
+    except requests.exceptions.Timeout as errt:
+        print(errt)
+        sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(err)
+        sys.exit(1)
 
 def clush(hosts, cmds):
     logging.debug("utils/clush: {0} {1}".format(cmds, hosts))
@@ -185,7 +282,10 @@ def value_from_file(myfile, key):
 
 
 def initialize_logger(debug):
-    output_dir = "/var/log/clara"
+    if os.geteuid() == 0:
+        output_dir = "/var/log/clara"
+    else:
+        output_dir = "~/log/clara"
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
