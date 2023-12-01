@@ -18,6 +18,7 @@ Requires: clara-core clara-plugin-chroot clara-plugin-enc
 Requires: clara-plugin-images clara-plugin-ipmi clara-plugin-p2p
 Requires: clara-plugin-show clara-plugin-repo clara-plugin-slurm
 Requires: clara-plugin-virt
+Requires: clara-plugin-redfish
 
 %description
 This is a meta-package that provides Clara software.
@@ -112,6 +113,15 @@ Group: Application/System
 Requires: clara-core fping ipmitool sshpass
 %description plugin-ipmi
 Cluster administration tools ipmi plugin
+Clara is a set of tools to help administering and installing clusters.
+
+# clara-plugin-redfish package preamble
+%package plugin-redfish
+Summary: This package provides the redfish plugin of Clara.
+Group: Application/System
+Requires: clara-core
+%description plugin-redfish
+Cluster administration tools redfish plugin
 Clara is a set of tools to help administering and installing clusters.
 
 # clara-plugin-p2p package preamble
@@ -259,6 +269,12 @@ Clara is a set of tools to help administering and installing clusters.
 /etc/clara/virt.ini
 /etc/clara/templates/vm/default.xml
 /etc/clara/templates/volume/default.xml
+
+# plugin-redfish
+%files plugin-redfish
+%defattr(-,root,root,-)
+%{python3_sitelib}/clara/plugins/clara_redfish.py
+%{python3_sitelib}/clara/plugins/__pycache__/clara_redfish.*
 
 
 %changelog
