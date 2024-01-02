@@ -278,7 +278,7 @@ Clara is a set of tools to help administering and installing clusters.
 
 
 %changelog
-* Tue Jan 01 2024 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20240101-1el8.edf
+* Mon Jan 01 2024 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20240101-1el8.edf
 - New upstream release 0.20240101
 
 * Fri Dec 01 2023 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20231201-3el8.edf
@@ -296,7 +296,7 @@ Clara is a set of tools to help administering and installing clusters.
 * Tue Oct 03 2023 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20231003-1el8.edf
 - New upstream release 0.20231003
 
-* Tue Jan 01 2023 Rémi Palancher <remi-externe.palancher@edf.fr> 0.20230103-1el8.edf
+* Tue Jan 03 2023 Rémi Palancher <remi-externe.palancher@edf.fr> 0.20230103-1el8.edf
 - New upstream release 0.20230103
 
 * Thu Dec 22 2022 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20221222-1el8.edf
