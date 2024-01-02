@@ -61,6 +61,16 @@ class NodeGroup:
                 self.clients[host] = client
         self.pools = {}
 
+
+    def get_nodeinfo(self):
+        memory = {}
+        cpus = {}
+        for client in self.clients.values():
+            host = client.hostname
+            _, memory[host], cpus[host], _, _, _, _, _ = client.get_nodeinfo()
+
+        return memory, cpus
+
     def refresh(self):
         pool = self.get_pool()
         # Get defined VMs
@@ -112,7 +122,7 @@ class NodeGroup:
             logger.error("No host found with VM %s", vm_name)
             return False
 
-    def vm_migrate(self, vm_name, dest_host, host=None):
+    def vm_migrate(self, vm_name, dest_host, host=None, dry_run=False):
         if dest_host not in self.clients.keys():
             logger.error("No active connection to destination host %s",
                          dest_host)
@@ -120,9 +130,12 @@ class NodeGroup:
         if host is None:
             host = self.get_vm_host(vm_name)
         if host is not None:
-            status = self.clients[host].vm_migrate(vm_name,
-                                                   self.clients[dest_host])
-            self.refresh()
+            if dry_run:
+                return True
+            else:
+                status = self.clients[host].vm_migrate(vm_name,
+                                                       self.clients[dest_host])
+                self.refresh()
             return status
         else:
             logger.error("No host found with VM %s", vm_name)
@@ -143,6 +156,14 @@ class NodeGroup:
             return self.clients[host].get_vm_state(vm_name)
         else:
             return 'MISSING'
+
+    def get_vm_info(self, vm_name, host=None):
+        if host is None:
+            host = self.get_vm_host(vm_name)
+        if host:
+            return self.clients[host].get_vm_info(vm_name)
+        else:
+            return None
 
     def get_vm_host(self, vm_name):
         hosts = self.get_vm_host_list(vm_name)
@@ -179,3 +200,23 @@ class NodeGroup:
 
     def get_clients(self):
         return self.clients
+
+    def get_dest_host(self, vm):
+        try:
+            dest_host = {
+                        host: len(client.get_vm_list())
+                        for host, client in self.clients.items()
+                        for _host, state in vm.get_host_state().items()
+                        if not host == _host and state == 'RUNNING'
+                        }
+            logger.debug("elected destination host: %s" % dest_host)
+            return dest_host
+        except:
+            return None
+
+    def elect_dest_host(self, vm):
+        dest_host = self.get_dest_host(vm)
+        if dest_host:
+            return min(dest_host, key = dest_host.get)
+        else:
+            return None
