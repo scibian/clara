@@ -42,11 +42,11 @@ Usage:
     clara repo push [<dist>]
     clara repo add <dist> <file>... [--reprepro-flags="list of flags"...] [--no-push]
     clara repo del <dist> <name>... [--no-push]
-    clara repo list (all|<dist>)
-    clara repo search <keyword>
+    clara repo search <keyword> [rpm|deb]
+    clara repo list (all|rpm|deb|<dist>)
     clara repo copy <dist> <package> <from-dist> [--no-push]
     clara repo move <dist> <package> <from-dist> [--no-push]
-    clara repo jenkins <dist> <job> [--source=<arch>] [--reprepro-flags="list of flags"...]
+    clara repo jenkins (list|<dist>) <job> [--source=<arch>] [--reprepro-flags="list of flags"...] [--build=<build>]
     clara repo -h | --help | help
 
 Options:
@@ -62,11 +62,159 @@ import os
 import sys
 import tempfile
 import configparser
+import re
+import glob
+import shutil
 
 import docopt
-from clara.utils import clara_exit, run, get_from_config, get_from_config_or, value_from_file, conf, os_distribution, os_major_version
+from clara.utils import clara_exit, run, get_from_config, get_from_config_or, value_from_file, conf, os_distribution, os_major_version, do_print
+
+try:
+    from prettytable import PrettyTable as prettytable
+except:
+    print("[WARN] PLS raise 'pip install prettytable' or install 'python3-prettytable' package!")
+    pass
 
 _opt = {'dist': None}
+
+def do_update(path_repo=None):
+    if not path_repo:
+        # default to "/srv/repos" distribution base repository
+        repo_dir = get_from_config_or("repo", "repo_rpm", _opt['dist'], "/srv/repos")
+        path_repo = os.path.join(repo_dir, _opt['dist'])
+
+    fnull = open(os.devnull, 'w')
+    cmd = ["/usr/bin/createrepo", "--update", path_repo]
+    run(cmd, stdout=fnull, stderr=fnull)
+    cmd = ["/usr/bin/yum-config-manager", "--enable", _opt['dist']]
+    run(cmd, stdout=fnull, stderr=fnull)
+    fnull.close()
+
+def do_create(dest_dir="Packages"):
+    # default to "/srv/repos" distribution base repository
+    repo_dir = get_from_config_or("repo", "repo_rpm", _opt['dist'], '/srv/repos')
+    path_repo = os.path.join(repo_dir, _opt['dist'])
+
+    if os.path.isdir(path_repo):
+        clara_exit("The repository '{}' already exists!".format(path_repo))
+
+    logging.info("Creating repository {} in directory {} ...".format(_opt['dist'], repo_dir))
+    os.makedirs(os.path.join(path_repo, dest_dir))
+
+    do_update(path_repo)
+
+    createrepo_config = os.path.join("/etc/yum/repos.d/", _opt['dist'] + ".repo")
+    fcreaterepo = open(createrepo_config, 'w')
+    fcreaterepo.write("""[{0}]
+name={0}
+baseurl={1}
+enabled=1
+autorefresh=1
+gpgcheck=1
+""".format(_opt['dist'], "file://" + path_repo))
+
+    fcreaterepo.close()
+
+def do_add(package, dest_dir="Packages"):
+    # default to "/srv/repos" distribution base repository
+    repo_dir = get_from_config_or("repo", "repo_rpm", _opt['dist'], "/srv/repos")
+    path_repo = os.path.join(repo_dir, _opt['dist'])
+    if not os.path.isdir(path_repo):
+        message = "There is no configuration for repository %s!\n" % _opt['dist']
+        message += "PLS, run first 'clara repo init <dist>'"
+        clara_exit(message)
+
+    path = os.path.join(path_repo, dest_dir)
+    if not os.path.isdir(path):
+        os.makedirs(path)
+
+    if os.path.isfile(package):
+        logging.info("Adding package %s to repository %s ..." % (package,_opt['dist']))
+        shutil.copy(package, path)
+    else:
+        logging.warn("Path %s to package don't exist!" % package)
+
+def do_del(packages, dest_dir="Packages"):
+    # default to "/srv/repos" distribution base repository
+    repo_dir = get_from_config_or("repo", "repo_rpm", _opt['dist'], "/srv/repos")
+    path_repo = os.path.join(repo_dir , _opt['dist'])
+    path = os.path.join(path_repo, dest_dir)
+
+    # default to "x86_64,src,i686,noarch" archs
+    archs = get_from_config_or("repo", "archs_rpm", _opt['dist'], default="x86_64,src,i686,noarch")
+    for package in packages:
+        elem = package.split(':')
+        cmd = "repoquery -a --show-duplicates --search " + elem[0] + " --archlist=" + archs + " -q --qf='%{location}'"
+        output, _ = run(cmd, shell=True)
+        for line in output.split('\n'):
+            filename = line[7:]
+            if len(elem) == 2:
+                if re.search(elem[1], filename):
+                    if os.path.isfile(filename):
+                        logging.info("removing path {} to package".format(filename, package))
+                        os.remove(filename)
+                    else:
+                        logging.warn("path {} to package {} don't exist!".format(filename, package))
+            else:
+                if os.path.isfile(filename):
+                    logging.info("removing path {} to package".format(filename, package))
+                    os.remove(filename)
+                else:
+                    logging.warn("path {} to package {} don't exist!".format(filename, package))
+
+    do_update(path_repo)
+
+def do_list(dest_dir="Packages", dist=None):
+    # default to "x86_64,src,i686,noarch" archs
+    archs = get_from_config_or("repo", "archs_rpm", _opt['dist'], default="x86_64,src,i686,noarch")
+    if dist:
+        cmd = "repoquery --repoid=" + dist + " -a --archlist=" + archs + " --envra --show-duplicates"
+        logging.debug("repo/do_list(repo): {}".format(cmd))
+        output, _ = run(cmd, shell=True)
+        for line in output.split('\n'):
+            lst = line.split('.')
+            tab = lst[0].split('-')
+            package = '-'.join(tab[0:-1]) + ' ' + tab[-1] + '.'
+            version = '.'.join(lst[1:-1])
+            arch = lst[-1]
+            print("{}|rpm|{}: {}{}".format(_opt['dist'], arch, package[2:], version ))
+    else:
+        cmd = "repoquery -a --archlist=" + archs + " --show-duplicates -q --qf='%{repoid} %{location}'"
+        logging.debug("repo/do_list: {}".format(cmd))
+        output, _ = run(cmd, shell=True)
+        for line in output.split('\n'):
+            lst = line.split('/')
+            repo = lst[0].split(' ')[0]
+            idx = lst.index(repo)
+            filename = os.path.basename(line)
+            rpm_os = filename.split('.')
+            fullname = '/'.join(lst[idx + 1:])
+            print("{}|{}|{} {}".format(repo, rpm_os[-1], rpm_os[-2], fullname))
+
+def do_search(extra, table):
+    # default to "x86_64,src,i686,noarch" archs
+    archs = get_from_config_or("repo", "archs_rpm", _opt['dist'], default="x86_64,src,i686,noarch")
+
+    cmd = "repoquery -a --show-duplicates --search " + extra + " --archlist=" + archs + " -q --qf='%{repoid} %{name} %{location}'"
+    output, _ = run(cmd, shell=True)
+    arch = {}
+
+    for line in output.split('\n'):
+        if line == "":
+            continue
+        filename = os.path.basename(line)
+        repoid = line.split(' ')[0]
+        package = line.split(' ')[1]
+        tab = filename[len(package) + 1:].split('.')
+        version = '.'.join(tab[0:-2])
+        key = package + ' ' + version + ' ' + repoid
+        name = tab[-2]
+        if key in arch:
+           arch[key] += ',' + name
+        else:
+           arch[key] = name
+    for key in arch:
+        do_print(table, key.split(' ') + [arch[key]])
 
 # Returns a boolean to tell if password derivation can be used with OpenSSL.
 # It is disabled on Debian < 10 (eg. in stretch) because it is not supported by
@@ -139,7 +287,6 @@ def do_key():
 
 
 def do_init():
-    import shutil
     repo_dir = get_from_config("repo", "repo_dir", _opt['dist'])
     reprepro_config = repo_dir + '/conf/distributions'
     mirror_local = get_from_config("repo", "mirror_local", _opt['dist'])
@@ -259,7 +406,7 @@ def do_push(dist=''):
             run(push_cmd.split(' '))
 
 
-def do_reprepro(action, package=None, flags=None, extra=None):
+def do_reprepro(action, package=None, flags=None, extra=None, table=None):
     repo_dir = get_from_config("repo", "repo_dir", _opt['dist'])
     reprepro_config = repo_dir + '/conf/distributions'
     mirror_local = get_from_config("repo", "mirror_local", _opt['dist'])
@@ -290,31 +437,145 @@ def do_reprepro(action, package=None, flags=None, extra=None):
 
         if package is not None:
             cmd.append(package)
-    run(cmd)
+
+    if action == 'ls' and table:
+        output, _ = run(' '.join(cmd), shell=True)
+
+        for line in output.split('\n'):
+            if line == "":
+                continue
+            do_print(table, [i.strip() for i in line.split('|')])
+    else:
+        run(cmd)
+
     os.umask(oldMask)
 
 
-def copy_jenkins(job, arch, flags=None):
+def copy_jenkins(job, arch, flags=None, build="lastSuccessfulBuild", distro=None, dry_run=False):
 
-    if not job.endswith("-binaries"):
-        job = job + "-binaries"
+    if re.search(r"bin-|-binaries", job):
+        jobs = [job]
+    elif dry_run:
+        jobs = ["*%s*" % job]
+    else:
+        jobs  = [job + "-binaries", "bin-" + job]
+        jobs += [job + "-binariesrpm", job + "-binariesrpm2"]
 
     jenkins_dir = get_from_config("repo", "jenkins_dir")
-    path = os.path.join(jenkins_dir, job, "builds/lastSuccessfulBuild/archive/")
+    isok = False
 
-    if not os.path.isdir(path):
-        clara_exit("The job {} doesn't exist or needs to be built.".format(job))
+    if dry_run:
+        try:
+            table = prettytable()
+            table.field_names = ['Job', 'Path', 'Build', 'Package']
+        except:
+            table = "{:30}|{:60}|{:15}|{}"
 
-    changesfile = None
+    for job in jobs:
+        archive_path = "builds/%s/archive/" % build
+        conf = "configurations/"
+        axis_arch = conf + "axis-architecture/%s/" % arch
+        paths = [ os.path.join(jenkins_dir, job, archive_path),
+                  os.path.join(jenkins_dir, job, conf + archive_path),
+                  os.path.join(jenkins_dir, job, axis_arch + archive_path)]
 
-    for f in os.listdir(path):
-        if f.endswith("_{0}.changes".format(arch)):
-            changesfile = os.path.join(path+f)
+        for path in paths:
 
-    if changesfile is None:
-        clara_exit("Not changes file was found in {0}".format(path))
+            if not os.path.isdir(path) and not dry_run:
+                continue
 
-    do_reprepro('include', package=changesfile, flags=flags)
+            if dry_run:
+                for _file in glob.glob(path + "/*"):
+                    _file = _file.replace(jenkins_dir, '').split('/')
+                    _job = _file[0]
+                    _dirname = '/'.join(_file[1:-3])
+                    _build = _file[-3]
+                    _name = _file[-1]
+                    do_print(table, [_job, _dirname, _build, _name])
+            else:
+
+                if not distro or distro == "debian":
+                    for changesfile in glob.glob(path + "/*_%s.changes" % arch):
+                        message = "Found job named {} under path:\n{} ..!\n".format(job, path)
+                        logging.info(message)
+                        do_reprepro('include', package=changesfile, flags=flags)
+                        isok = True
+                        break
+
+                # if any, continue breaking, are we are in nested break!
+                if isok:
+                    break
+
+                # rpm specific treatment
+                if not distro or distro == "rhel":
+                    for f in os.listdir(path):
+                        elem = os.path.join(path+f)
+                        if f.endswith(".src.rpm"):
+                            do_add(elem, dest_dir="SPackages")
+                            isok = True
+                        elif f.endswith(".rpm"):
+                            do_add(elem)
+                            isok = True
+                    if isok:
+                        do_update()
+
+                if isok:
+                    break
+
+        # if any, continue breaking, are we are in nested break!
+        if isok:
+            break
+
+        if not dry_run:
+            message  = "No job {} named {} found! ".format(distro, job)
+            message += "Either is doesn't exist or needs to be built..!"
+            logging.debug(message)
+
+    if dry_run:
+        try:
+            # instead of printing raw table, work a little around it to have
+            # something more intuitive, suppressing redundant information!
+            done = {}
+            if table._get_rows({'oldsortslice': False,'start': 0, 'end': 1, 'sortby': False}):
+                table.align["Path"] = "l"
+                table.align["Job"] = "l"
+                table.align["Package"] = "l"
+                table.sortby = "Job"
+
+                table_txt = ''
+                match_line = 0
+                empty_cell = False
+                # simulate here some tricks not yet supported by prettytable used version!
+                # add supplementary horizontal line
+                for number, line in enumerate(table.get_string().split('\n')):
+                    job = None
+                    if number == 0:
+                        horizontal = line
+                    elif number > 1:
+                        if '|' in line:
+                            job = line.split('|')[1].strip()
+                    if job:
+                        if job not in done:
+                            done[job] = ''
+                            if number > 3:
+                                line = '%s\n%s' % (horizontal, line)
+                            table_txt = '%s%s\n' % (table_txt, line)
+                        else:
+                            # for line of witch three first columns have been printed, we no more
+                            # print again same information! So table if more readable!
+                            # we replace all colum cell data with space
+                            cell1 = re.sub(r'.*', lambda x: ' ' * len(x.group()), line.split('|')[1])
+                            cell2 = re.sub(r'.*', lambda x: ' ' * len(x.group()), line.split('|')[2])
+                            cell3 = re.sub(r'.*', lambda x: ' ' * len(x.group()), line.split('|')[3])
+                            line = "|{}|{}|{}|{}".format(cell1, cell2, cell3, '|'.join(line.split('|')[4:]))
+                            table_txt = '%s%s\n' % (table_txt, line)
+                    else:
+                        table_txt = '%s%s\n' % (table_txt, line)
+
+                # we finally print result more funny table!
+                print(table_txt)
+        except:
+            pass
 
 
 
@@ -323,16 +584,41 @@ def main():
     dargs = docopt.docopt(__doc__)
 
 
-    _opt['dist'] = get_from_config("common", "default_distribution")
-    if dargs["<dist>"] is not None:
-        _opt['dist'] = dargs["<dist>"]
-    if _opt['dist'] not in get_from_config("common", "allowed_distributions"):
-        clara_exit("{0} is not a known distribution".format(_opt['dist']))
+    if not (dargs['jenkins'] and dargs['list']):
+        _opt['dist'] = get_from_config("common", "default_distribution")
+
+        if dargs["<dist>"] is not None:
+            _opt['dist'] = dargs["<dist>"]
+
+        if _opt['dist'] not in get_from_config("common", "allowed_distributions"):
+            clara_exit("{0} is not a known distribution".format(_opt['dist']))
+
+        if re.match(r"scibian|calibre", _opt['dist']):
+            distro = 'debian'
+        elif "rpm-hpc" in _opt['dist']:
+            distro = 'rhel'
+        else:
+            pattern = re.compile(r"(?P<distro>[a-z]+)(?P<version>\d+)")
+            match = pattern.match(_opt['dist'])
+            if match:
+                distro = match.group('distro')
+                if distro in ['rhel', 'centos', 'almalinux', 'rocky']:
+                    distro = 'rhel'
+            else:
+                # default to "rhel" distribution
+                distro = get_from_config_or("repo", "distro", _opt['dist'], "rhel")
+                if distro not in ['debian', 'rhel']:
+                    clara_exit("provided distribution %s not yet supported!" % distro)
+    else:
+        distro = None
 
     if dargs['key']:
         do_key()
     if dargs['init']:
-        do_init()
+        if distro == "debian":
+            do_init()
+        elif distro == "rhel":
+            do_create()
     elif dargs['sync']:
         if dargs['all']:
             do_sync('all')
@@ -345,30 +631,76 @@ def main():
         else:
             do_push()
     elif dargs['add']:
-        for elem in dargs['<file>']:
-            if elem.endswith(".deb"):
-                do_reprepro('includedeb', elem, dargs['--reprepro-flags'])
-            elif elem.endswith(".changes"):
-                do_reprepro('include', elem, dargs['--reprepro-flags'])
-            elif elem.endswith(".dsc"):
-                do_reprepro('includedsc', elem, dargs['--reprepro-flags'])
-            else:
-                clara_exit("File is not a *.deb *.dsc or *.changes")
+        if distro == "debian":
+            for elem in dargs['<file>']:
+                if elem.endswith(".deb"):
+                    do_reprepro('includedeb', elem, dargs['--reprepro-flags'])
+                elif elem.endswith(".changes"):
+                    do_reprepro('include', elem, dargs['--reprepro-flags'])
+                elif elem.endswith(".dsc"):
+                    do_reprepro('includedsc', elem, dargs['--reprepro-flags'])
+                else:
+                    clara_exit("File is not a *.deb *.dsc or *.changes")
+        elif distro == "rhel":
+            for elem in dargs['<file>']:
+                if elem.endswith(".rpm"):
+                    do_add(elem)
+                elif elem.endswith(".src.rpm"):
+                    do_add(elem, dest_dir="SPackages")
+            do_update()
         if dargs['<file>'] and not dargs['--no-push']:
             do_push(_opt['dist'])
     elif dargs['del']:
-        for elem in dargs['<name>']:
-            do_reprepro('remove', elem)
-            do_reprepro('removesrc', elem)
-        if dargs['<name>'] and not dargs['--no-push']:
-            do_push(_opt['dist'])
-    elif dargs['list']:
+        if distro == "debian":
+            for elem in dargs['<name>']:
+                do_reprepro('remove', elem)
+                do_reprepro('removesrc', elem)
+            if dargs['<name>'] and not dargs['--no-push']:
+                do_push(_opt['dist'])
+        elif distro == "rhel":
+            do_del(dargs['<name>'])
+    elif dargs['list'] and not dargs['jenkins']:
         if dargs['all']:
             do_reprepro('dumpreferences')
+            do_list()
+        elif dargs['rpm']:
+            do_list()
+        elif dargs['deb']:
+            do_reprepro('dumpreferences')
         else:
-            do_reprepro('list')
+            if distro == "debian":
+                do_reprepro('list')
+            elif distro == "rhel":
+                do_list(dist=_opt['dist'])
     elif dargs['search']:
-        do_reprepro('ls', extra=[dargs['<keyword>']])
+        try:
+            table = prettytable()
+            table.field_names = ['Packages', 'Version', 'Repository', 'Archs']
+        except:
+            table = "{:20} | {:40} | {:30} | {}"
+
+        if dargs['deb']:
+            do_reprepro('ls', extra=[dargs['<keyword>']], table=table)
+        elif dargs['rpm']:
+            do_search(dargs['<keyword>'], table)
+        else:
+            do_reprepro('ls', extra=[dargs['<keyword>']], table=table)
+            do_search(dargs['<keyword>'], table)
+
+        try:
+            # instead of printing raw table, work a little around it to have
+            # something more intuitive, suppressing redundant information!
+            if table._get_rows({'oldsortslice': False,'start': 0, 'end': 1, 'sortby': False}):
+                table.align["Packages"] = "l"
+                table.align["Version"] = "r"
+                table.align["Repository"] = "r"
+                table.align["Archs"] = "l"
+                table.sortby = "Repository"
+
+                print(table)
+        except:
+            pass
+
     elif dargs['copy']:
         if dargs['<from-dist>'] not in get_from_config("common", "allowed_distributions"):
             clara_exit("{0} is not a known distribution".format(dargs['<from-dist>']))
@@ -385,10 +717,11 @@ def main():
             do_push(dargs['<from-dist>'])
             do_push(_opt['dist'])
     elif dargs['jenkins']:
+        build = dargs['--build'] if dargs['--build'] else "lastSuccessfulBuild"
         arch = dargs['--source']
         if arch is None:
             arch = "amd64"
-        copy_jenkins(dargs['<job>'], arch, dargs['--reprepro-flags'])
+        copy_jenkins(dargs['<job>'], arch, flags=dargs['--reprepro-flags'], build=build, distro=distro, dry_run=dargs['list'])
 
 
 if __name__ == '__main__':
