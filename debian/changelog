@@ -1,3 +1,9 @@
+clara (0.20240110-0sci10u1) scibian10; urgency=medium
+
+  * New upstream version 0.20240110
+
+ -- KWAME AMEDODJI <kwame-externe.amedodji@edf.fr>  Wed, 10 Jan 2024 19:58:14 +0100
+
 clara (0.20240104-0sci10u1) scibian10; urgency=medium
 
   * New upstream version 0.20240104
