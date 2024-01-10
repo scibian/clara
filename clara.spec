@@ -101,7 +101,7 @@ Clara is a set of tools to help administering and installing clusters.
 %package plugin-images
 Summary: This package provides the images plugin of Clara.
 Group: Application/System
-Requires: clara-core debootstrap squashfs-tools python3-paramiko
+Requires: clara-core debootstrap squashfs-tools python3-paramiko python3-requests
 %description plugin-images
 Cluster administration tools image plugin
 Clara is a set of tools to help administering and installing clusters.
@@ -119,7 +119,7 @@ Clara is a set of tools to help administering and installing clusters.
 %package plugin-redfish
 Summary: This package provides the redfish plugin of Clara.
 Group: Application/System
-Requires: clara-core
+Requires: clara-core python3-requests
 %description plugin-redfish
 Cluster administration tools redfish plugin
 Clara is a set of tools to help administering and installing clusters.
