@@ -101,7 +101,7 @@ Clara is a set of tools to help administering and installing clusters.
 %package plugin-images
 Summary: This package provides the images plugin of Clara.
 Group: Application/System
-Requires: clara-core debootstrap squashfs-tools python3-paramiko python3-requests
+Requires: clara-core debootstrap squashfs-tools python3-paramiko python3-requests python3-prettytable
 %description plugin-images
 Cluster administration tools image plugin
 Clara is a set of tools to help administering and installing clusters.
@@ -138,7 +138,7 @@ Clara is a set of tools to help administering and installing clusters.
 %package plugin-repo
 Summary: This package provides the repo plugin of Clara.
 Group: Application/System
-Requires: clara-core gnupg debmirror
+Requires: clara-core gnupg debmirror python3-prettytable
 Recommends: reprepro
 %description plugin-repo
 Cluster administration tools repo plugin
