@@ -82,7 +82,8 @@ Depends:
  clara-core (= ${source:Version}),
  debootstrap,
  squashfs-tools,
- python3-paramiko
+ python3-paramiko,
+ python3-requests
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Description: Cluster administration tools images plugin
@@ -130,6 +131,7 @@ Depends:
  reprepro,
  gnupg,
  debmirror,
+ python3-requests
 Recommends: gnupg-agent
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
