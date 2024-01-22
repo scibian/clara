@@ -1,3 +1,13 @@
+clara (0.20240122-0sci9u1) scibian9; urgency=medium
+
+  * add package python3-requests as dependency
+  * add package python3-prettytable as dependency
+  * add package yum-utils as dependency
+  * add redfish as simplified interface like ipmi.
+  * fix typo in show plugin description
+
+ -- KWAME AMEDODJI <kwame-externe.amedodji@edf.fr>  Mon, 22 Jan 2024 09:55:15 +0100
+
 clara (0.20240111-sci9u1) scibian9; urgency=medium
 
   * New upstream version 0.20240111
