@@ -129,6 +129,7 @@ Depends:
  ${python3:Depends},
  clara-core (= ${source:Version}),
  reprepro,
+ yum-utils,
  gnupg,
  debmirror,
  python3-requests,
