@@ -131,7 +131,8 @@ Depends:
  reprepro,
  gnupg,
  debmirror,
- python3-requests
+ python3-requests,
+ python3-prettytable
 Recommends: gnupg-agent
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
@@ -162,7 +163,8 @@ Depends:
  clara-core (= ${source:Version}),
  python3-libvirt,
  python3-jinja2,
- python3-humanize
+ python3-humanize,
+ python3-prettytable
 Breaks: clara (<< 0.20180123)
 Replaces: clara (<< 0.20180123)
 Description: Cluster administration tools virt plugin
