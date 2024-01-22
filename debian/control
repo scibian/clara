@@ -186,20 +186,6 @@ Description: Cluster administration tools show plugin
  .
  This package provides the show plugin of Clara.
 
-Package: clara-plugin-redfish
-Architecture: all
-Depends:
- ${misc:Depends},
- ${python3:Depends},
- clara-core (= ${source:Version}),
- python3-requests
-Breaks: clara (<< 0.20180123)
-Replaces: clara (<< 0.20180123)
-Description: Cluster administration tools redfish plugin
- Clara is a set of tools to help administering and installing clusters.
- .
- This package provides the redfish plugin of Clara.
-
 Package: clara
 Architecture: all
 Depends:
@@ -214,8 +200,7 @@ Depends:
  clara-plugin-repo (= ${source:Version}),
  clara-plugin-slurm (= ${source:Version}),
  clara-plugin-virt (= ${source:Version}),
- clara-plugin-show (= ${source:Version}),
- clara-plugin-redfish (= ${source:Version})
+ clara-plugin-show (= ${source:Version})
 Description: Cluster administration tools metapackage
  Clara is a set of tools to help administering and installing clusters.
  .
