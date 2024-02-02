@@ -1,3 +1,9 @@
+clara (0.20240202-0sci10u1) scibian10; urgency=medium
+
+  * New upstream version 0.20240202
+
+ -- KWAME AMEDODJI <kwame-externe.amedodji@edf.fr>  Fri, 02 Feb 2024 18:26:45 +0100
+
 clara (0.20240122-0sci10u2) scibian10; urgency=medium
 
   * Revert "add redfish as simplified interface like ipmi."
