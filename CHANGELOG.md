@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20240724] - 2024-07-24
+
+### Fixed
+- plugin images: fix rhel 8.10 hang initrd issue
+- plugin repo: enforce umask to fix repodata right
+
+## [0.20240410] - 2024-04-10
+
+### Fixed
+- virt: Don't crash when adding a volume
+
+## [0.20240202] - 2024-02-02
+
+### Fixed
+- plugin repo: fix issue with unwanted pkg deletion
+
+## [0.20240111] - 2024-01-11
+
+### Fixed
+- plugin repo: fix issue with not yet created repo
+
+## [0.20240110] - 2024-01-10
+
+### Added
+- docs: introduce repo_rpm for redhat-like repo
+- docs: add copy/move for redhat-like repo
+- docs: fix force existing repo to be create again
+- plugin repo: add copy/move for redhat-like repo
+- docs: describes new redfish plugin
+- add into README.md new commands for redfish plugin
+
+### Fixed
+- utils: make optionnal requests need by redfish
+- plugin repo: fix issue with empty/unexistent repo
+- plugin repo: fix issue with removing path repo
+- plugin repo: force existing repo creation again
+- plugin repo: no raise makecache at repo creation
+- plugin repo: support arbitrar repository update
+
 ## [0.20240104] - 2024-01-04
 
 ### Added

@@ -7,7 +7,7 @@ clara-repo - creates, updates and synchronizes local Debian or RedHat like repos
 # SYNOPSIS
 
     clara repo key
-    clara repo init <dist>
+    clara repo init <dist> [--force]
     clara repo sync (all|<dist> [<suites>...])
     clara repo push [<dist>]
     clara repo add <dist> <file>... [--reprepro-flags="list of flags"...] [--no-push]
@@ -74,12 +74,14 @@ the possibility of making mirror of remote Debian repositories locally.
 
         Copy to the given distribution a package from another distribution.
         Note that both repositories must be handled by clara.
+        For Redhat-like repository, package version can be add through <package>:<version>
 
     clara repo move <dist> <package> <from-dist>
 
         Copy to the given distribution a package from another distribution
         and remove the package from the origin repository.
         Note that both repositories must be handled by clara.
+        For Redhat-like repository, package version can be add through <package>:<version>
 
     clara repo jenkins (list|<dist>) <job> [--source=<arch>] [--reprepro-flags="list of flags"...] [--build=<build>]
 
@@ -185,4 +187,4 @@ To copy all package from jenkins job:
 
 # SEE ALSO
 
-clara(1), clara-images(1), clara-ipmi(1), clara-p2p(1), clara-slurm(1), clara-enc(1), clara-build(1), clara-virt(1), clara-chroot(1)
+clara(1), clara-images(1), clara-ipmi(1), clara-p2p(1), clara-slurm(1), clara-enc(1), clara-build(1), clara-virt(1), clara-chroot(1), clara-redfish(1)

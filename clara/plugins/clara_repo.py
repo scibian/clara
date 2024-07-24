@@ -37,7 +37,7 @@ Creates, updates and synchronizes local Debian repositories.
 
 Usage:
     clara repo key
-    clara repo init <dist>
+    clara repo init <dist> [--force]
     clara repo sync (all|<dist> [<suites>...])
     clara repo push [<dist>]
     clara repo add <dist> <file>... [--reprepro-flags="list of flags"...] [--no-push]
@@ -77,31 +77,40 @@ except:
 
 _opt = {'dist': None}
 
-def do_update(path_repo=None):
+def do_update(dist, path_repo=None, makecache=True):
     if not path_repo:
         # default to "/srv/repos" distribution base repository
-        repo_dir = get_from_config_or("repo", "repo_rpm", _opt['dist'], "/srv/repos")
-        path_repo = os.path.join(repo_dir, _opt['dist'])
+        repo_dir = get_from_config_or("repo", "repo_rpm", dist, "/srv/repos")
+        path_repo = os.path.join(repo_dir, dist)
 
     fnull = open(os.devnull, 'w')
     cmd = ["/usr/bin/createrepo", "--update", path_repo]
+    # Temporarily change umask to create directories and files
+    umask = os.umask(0o022)
     run(cmd, stdout=fnull, stderr=fnull)
-    cmd = ["/usr/bin/yum-config-manager", "--enable", _opt['dist']]
+    os.umask(umask)  # Restore umask
+    cmd = ["/usr/bin/yum-config-manager", "--enable", dist]
     run(cmd, stdout=fnull, stderr=fnull)
+    if makecache:
+        cmd = ["/usr/bin/yum", "makecache", "--disablerepo=*", "--enablerepo=%s" % dist]
+        run(cmd, stdout=fnull, stderr=fnull)
     fnull.close()
 
-def do_create(dest_dir="Packages"):
+def do_create(dest_dir="Packages", force=False):
     # default to "/srv/repos" distribution base repository
     repo_dir = get_from_config_or("repo", "repo_rpm", _opt['dist'], '/srv/repos')
     path_repo = os.path.join(repo_dir, _opt['dist'])
 
     if os.path.isdir(path_repo):
-        clara_exit("The repository '{}' already exists!".format(path_repo))
+        if not force:
+            message = "The repository '{}' already exists!\n".format(path_repo)
+            message += "              - If need, add switch --force to recreate it!"
+            clara_exit(message)
+    else:
+        logging.info("Creating repository {} in directory {} ...".format(_opt['dist'], repo_dir))
+        os.makedirs(os.path.join(path_repo, dest_dir))
 
-    logging.info("Creating repository {} in directory {} ...".format(_opt['dist'], repo_dir))
-    os.makedirs(os.path.join(path_repo, dest_dir))
-
-    do_update(path_repo)
+    do_update(_opt['dist'], path_repo, makecache=False)
 
     createrepo_config = os.path.join("/etc/yum/repos.d/", _opt['dist'] + ".repo")
     fcreaterepo = open(createrepo_config, 'w')
@@ -143,26 +152,27 @@ def do_del(packages, dest_dir="Packages"):
     # default to "x86_64,src,i686,noarch" archs
     archs = get_from_config_or("repo", "archs_rpm", _opt['dist'], default="x86_64,src,i686,noarch")
     for package in packages:
-        elem = package.split(':')
-        cmd = "repoquery -a --show-duplicates --search " + elem[0] + " --archlist=" + archs + " -q --qf='%{location}'"
+        version = None
+        if ':' in package:
+            package, version = package.split(':')
+        cmd = "repoquery -a --show-duplicates --search " + package + " --archlist=" + archs + " -q --qf='%{repoid} %{name} %{location}'"
         output, _ = run(cmd, shell=True)
-        for line in output.split('\n'):
-            filename = line[7:]
-            if len(elem) == 2:
-                if re.search(elem[1], filename):
-                    if os.path.isfile(filename):
-                        logging.info("removing path {} to package".format(filename, package))
-                        os.remove(filename)
-                    else:
-                        logging.warn("path {} to package {} don't exist!".format(filename, package))
-            else:
-                if os.path.isfile(filename):
-                    logging.info("removing path {} to package".format(filename, package))
-                    os.remove(filename)
-                else:
-                    logging.warn("path {} to package {} don't exist!".format(filename, package))
 
-    do_update(path_repo)
+        for line in output.split('\n'):
+            if line == "":
+                continue
+            repoid, name, filename = line.replace('file://','').split(' ')
+            if not repoid == _opt['dist']:
+                continue
+            basename = os.path.basename(filename)
+            if (version == None and name == package) or (version and basename.startswith(package + '-' + version)):
+                if not os.path.isfile(filename):
+                    logging.debug("repo/do_copy: path {} of package {} don't exist in repository {}!".format(filename, package, _opt['dist']))
+                    continue
+                logging.info("removing package {} path {} in repository {}".format(package, filename, _opt['dist']))
+                os.remove(filename)
+
+    do_update(_opt['dist'], path_repo)
 
 def do_list(dest_dir="Packages", dist=None):
     # default to "x86_64,src,i686,noarch" archs
@@ -170,26 +180,39 @@ def do_list(dest_dir="Packages", dist=None):
     if dist:
         cmd = "repoquery --repoid=" + dist + " -a --archlist=" + archs + " --envra --show-duplicates"
         logging.debug("repo/do_list(repo): {}".format(cmd))
-        output, _ = run(cmd, shell=True)
-        for line in output.split('\n'):
-            lst = line.split('.')
-            tab = lst[0].split('-')
-            package = '-'.join(tab[0:-1]) + ' ' + tab[-1] + '.'
-            version = '.'.join(lst[1:-1])
-            arch = lst[-1]
-            print("{}|rpm|{}: {}{}".format(_opt['dist'], arch, package[2:], version ))
+        output, error = run(cmd, shell=True)
+        if len(error):
+            logging.error("repo/do_list(repo): {}".format(error))
+        else:
+            for line in output.split('\n'):
+                if len(line):
+                    lst = line.split('.')
+                    tab = lst[0].split('-')
+                    package = '-'.join(tab[0:-1]) + ' ' + tab[-1] + '.'
+                    version = '.'.join(lst[1:-1])
+                    arch = lst[-1]
+                    print("{}|rpm|{}: {}{}".format(_opt['dist'], arch, package[2:], version ))
+                else:
+                    message = "repo/do_list: no package yet added to repository {}!\n".format(_opt['dist'])
+                    message += "                - you probably need to initilize existing repository manually created!"
+                    logging.warn(message)
     else:
         cmd = "repoquery -a --archlist=" + archs + " --show-duplicates -q --qf='%{repoid} %{location}'"
         logging.debug("repo/do_list: {}".format(cmd))
         output, _ = run(cmd, shell=True)
         for line in output.split('\n'):
-            lst = line.split('/')
-            repo = lst[0].split(' ')[0]
-            idx = lst.index(repo)
-            filename = os.path.basename(line)
-            rpm_os = filename.split('.')
-            fullname = '/'.join(lst[idx + 1:])
-            print("{}|{}|{} {}".format(repo, rpm_os[-1], rpm_os[-2], fullname))
+            if len(line):
+                lst = line.split('/')
+                repo = lst[0].split(' ')[0]
+                idx = lst.index(repo)
+                filename = os.path.basename(line)
+                rpm_os = filename.split('.')
+                fullname = '/'.join(lst[idx + 1:])
+                print("{}|{}|{} {}".format(repo, rpm_os[-1], rpm_os[-2], fullname))
+            else:
+                message = "repo/do_list: no yet known rpm repository!\n"
+                message += "                - you probably need to initilize existing repository manually created!"
+                logging.warn(message)
 
 def do_search(extra, table):
     # default to "x86_64,src,i686,noarch" archs
@@ -215,6 +238,59 @@ def do_search(extra, table):
            arch[key] = name
     for key in arch:
         do_print(table, key.split(' ') + [arch[key]])
+
+def do_copy(from_dist, package, move=False):
+    # default to "x86_64,src,i686,noarch" archs
+    archs = get_from_config_or("repo", "archs_rpm", _opt['dist'], default="x86_64,src,i686,noarch")
+
+    version = None
+    if ':' in package:
+        package, version = package.split(':')
+    cmd = "repoquery -a --show-duplicates --search " + package + " --archlist=" + archs + " -q --qf='%{repoid} %{name} %{location}'"
+    output, _ = run(cmd, shell=True)
+    packages = {}
+    done = {}
+
+    for line in output.split('\n'):
+        if line == "":
+            continue
+        repoid, name, filename = line.replace('file://','').split(' ')
+        basename = os.path.basename(filename)
+        if (version == None and name == package) or (version and basename.startswith(package + '-' + version)):
+            if not os.path.isfile(filename):
+                logging.debug("repo/do_copy: file %s don't exist!" % filename)
+                continue
+            if repoid == _opt['dist']:
+                # package already exist in destination dist!
+                done[basename] = ''
+                continue
+            elif repoid == from_dist:
+                # consider only package from needfull dist!
+                packages[filename] = ''
+
+    count = 0
+    if len(packages):
+        for elem in packages:
+            if os.path.basename(elem) in done:
+                continue
+            count += 1
+            if elem.endswith(".rpm"):
+                do_add(elem)
+            elif elem.endswith(".src.rpm"):
+                do_add(elem, dest_dir="SPackages")
+            if move:
+                logging.debug("repo/do_copy: removing package %s from dist %s!" % (package, from_dist))
+                os.remove(elem)
+
+        if count:
+            do_update(_opt['dist'])
+            if move:
+                do_update(from_dist)
+        else:
+            logging.info("repo/do_copy: package %s already exist in dist %s!" % (package, _opt['dist']))
+    else:
+        message = " (version: %s)" % version if version else ""
+        logging.info("repo/do_copy: no package %s%s exist in dist %s!" % (package, message, from_dist))
 
 # Returns a boolean to tell if password derivation can be used with OpenSSL.
 # It is disabled on Debian < 10 (eg. in stretch) because it is not supported by
@@ -517,7 +593,7 @@ def copy_jenkins(job, arch, flags=None, build="lastSuccessfulBuild", distro=None
                             do_add(elem)
                             isok = True
                     if isok:
-                        do_update()
+                        do_update(_opt['dist'])
 
                 if isok:
                     break
@@ -618,7 +694,7 @@ def main():
         if distro == "debian":
             do_init()
         elif distro == "rhel":
-            do_create()
+            do_create(force=dargs['--force'])
     elif dargs['sync']:
         if dargs['all']:
             do_sync('all')
@@ -647,7 +723,7 @@ def main():
                     do_add(elem)
                 elif elem.endswith(".src.rpm"):
                     do_add(elem, dest_dir="SPackages")
-            do_update()
+            do_update(_opt['dist'])
         if dargs['<file>'] and not dargs['--no-push']:
             do_push(_opt['dist'])
     elif dargs['del']:
@@ -704,15 +780,21 @@ def main():
     elif dargs['copy']:
         if dargs['<from-dist>'] not in get_from_config("common", "allowed_distributions"):
             clara_exit("{0} is not a known distribution".format(dargs['<from-dist>']))
-        do_reprepro('copy', extra=[_opt['dist'], dargs['<from-dist>'], dargs['<package>']])
+        if distro == "debian":
+            do_reprepro('copy', extra=[_opt['dist'], dargs['<from-dist>'], dargs['<package>']])
+        elif distro == "rhel":
+            do_copy(dargs['<from-dist>'], dargs['<package>'])
         if not dargs['--no-push']:
             do_push(_opt['dist'])
     elif dargs['move']:
         if dargs['<from-dist>'] not in get_from_config("common", "allowed_distributions"):
             clara_exit("{0} is not a known distribution".format(dargs['<from-dist>']))
-        do_reprepro('copy', extra=[_opt['dist'], dargs['<from-dist>'], dargs['<package>']])
-        do_reprepro('remove', extra=[dargs['<from-dist>'], dargs['<package>']])
-        do_reprepro('removesrc', extra=[dargs['<from-dist>'], dargs['<package>']])
+        if distro == "debian":
+            do_reprepro('copy', extra=[_opt['dist'], dargs['<from-dist>'], dargs['<package>']])
+            do_reprepro('remove', extra=[dargs['<from-dist>'], dargs['<package>']])
+            do_reprepro('removesrc', extra=[dargs['<from-dist>'], dargs['<package>']])
+        elif distro == "rhel":
+            do_copy(dargs['<from-dist>'], dargs['<package>'], move=True)
         if not dargs['--no-push']:
             do_push(dargs['<from-dist>'])
             do_push(_opt['dist'])
