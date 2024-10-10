@@ -4,7 +4,7 @@
 # Main preamble
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
-Version: 0.20240724
+Version: 0.20241010
 Release:  1%{?dist}.edf
 Source0: %{name}-%{version}.tar.gz
 License: GPLv3
@@ -19,6 +19,7 @@ Requires: clara-plugin-images clara-plugin-ipmi clara-plugin-p2p
 Requires: clara-plugin-show clara-plugin-repo clara-plugin-slurm
 Requires: clara-plugin-virt
 Requires: clara-plugin-redfish
+Requires: clara-plugin-easybuild
 
 %description
 This is a meta-package that provides Clara software.
@@ -172,6 +173,15 @@ Requires: clara-core
 Cluster administration tools show plugin
 Clara is a set of tools to help administering and installing clusters.
 
+# clara-plugin-easybuild package preamble
+%package plugin-easybuild
+Summary: This package provides the easybuild plugin of Clara.
+Group: Application/System
+Requires: clara-core python3-docopt python3-prettytable
+%description plugin-easybuild
+Cluster administration tools easybuild plugin
+Clara is a set of tools to help administering and installing clusters.
+
 ##################
 # Files Sections #
 ##################
@@ -276,8 +286,17 @@ Clara is a set of tools to help administering and installing clusters.
 %{python3_sitelib}/clara/plugins/clara_redfish.py
 %{python3_sitelib}/clara/plugins/__pycache__/clara_redfish.*
 
+# plugin-easybuild
+%files plugin-easybuild
+%defattr(-,root,root,-)
+%{python3_sitelib}/clara/plugins/clara_easybuild.py
+%{python3_sitelib}/clara/plugins/__pycache__/clara_easybuild.*
+
 
 %changelog
+* Thu Oct 10 2024 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20241010-1el8.edf
+- New upstream release 0.20241010
+
 * Wed Jul 24 2024 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20240724-1el8.edf
 - New upstream release 0.20240724
 
