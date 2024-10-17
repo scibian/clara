@@ -80,6 +80,7 @@ from clara.utils import clara_exit, run, get_from_config_or, conf, module, yes_o
 
 from pprint import pprint, pformat
 from textwrap import fill
+from datetime import datetime
 
 try:
     from prettytable import PrettyTable as prettytable
@@ -97,7 +98,13 @@ def module_path(prefix):
     else:
         clara_exit("prefix must be either string, or list!")
 
+    # add back all modules in path
+    if isinstance(prefix, str):
+        modulepath = f"{modulepath}:{prefix}/modules/all"
+    else:
+        modulepath = modulepath + ":" + ":".join([f"{x}/modules/all" for x in prefix])
     os.environ["MODULEPATH"] = modulepath
+    logging.debug(f"MODULEPATH:\n{modulepath}")
 
 def module_avail(name, prefix):
 
@@ -105,7 +112,13 @@ def module_avail(name, prefix):
     module_path(prefix)
 
     _name = name.replace("-","/").replace(".eb","")
-    output, error = module(f"avail {_name}")
+    output, error = module(f"--show_hidden avail {_name}")
+
+    if not re.search(_name, error) and not re.search(r"\/\.", _name):
+    # support also hidden module!
+        _name = "/".join([re.sub(r"^(\d+\.)", r".\1", x) for x in _name.split("/")])
+        logging.debug(f"search hidden module {_name}")
+        output, error = module(f"--show_hidden avail {_name}")
     return _name, re.search(_name, error), error
 
 def show(software, prefix):
@@ -113,7 +126,7 @@ def show(software, prefix):
     if match:
         print(output)
     else:
-        logging.debug(f"No software {name} installed under prefix {prefix}!")
+        logging.info(f"No software {name} installed under prefix\n{', '.join(prefix)}!")
 
 def search(software, basedir, width):
     cmd = [eb, '--hook', f'{basedir}/pre_fetch_hook.py',
@@ -181,7 +194,8 @@ def get_dependencies(software, prefix, basedir, rebuild, dependencies=[]):
             _deplist = [name for name in match if name not in dependencies]
             if len(_deplist):
                 dependencies += _deplist
-                return list(itertools.chain(*[get_dependencies(_software, prefix, rebuild, dependencies) for _software, _ in _deplist]))
+                return list(itertools.chain(*[get_dependencies(_software, prefix, basedir, rebuild, dependencies)
+                            for _software, _ in _deplist]))
             else:
                 return dependencies
     else:
@@ -195,7 +209,8 @@ def get_dependencies(software, prefix, basedir, rebuild, dependencies=[]):
 def install(software, prefix, basedir, rebuild, requirement_only):
     # suppress, if need, ".eb" suffix
     name, match, _ = module_avail(software, prefix)
-    _software = f"{name.replace('/','-')}.eb"
+    _software = re.sub(r'/(\.)?', '-', name)
+    _software = f"{_software}.eb"
     if match:
         if rebuild:
             # module already exist under prefix
@@ -204,7 +219,6 @@ def install(software, prefix, basedir, rebuild, requirement_only):
             sys.setrecursionlimit(150)
             # retrieve software potential dependencies
             dependencies = get_dependencies(_software, prefix, basedir, rebuild)
-
             # suppress duplicates
             dependencies = list(dict.fromkeys(dependencies))
             if len(dependencies):
@@ -247,7 +261,7 @@ def module_versions(name, prefix):
     if not match:
         clara_exit(f"no module named {_name} under prefix {prefix}!")
 
-    output, error = module(f"spider {_name}")
+    output, error = module(f"--show_hidden spider {_name}")
 
     pattern = re.compile(r': module load (.*)\n\n|Versions:\n(.*)\n\n-', re.DOTALL)
     match = pattern.findall(error)
@@ -261,7 +275,7 @@ def tar(software, prefix, data, backupdir, extension, compresslevel, dereference
     if not re.match(r'^/\w+', prefix):
         logging.debug(f"unsupported prefix {prefix}!")
         return
-    packages_dir = f"{backupdir}/kwame"
+    packages_dir = f"{backupdir}/packages"
     if not os.path.isdir(packages_dir):
         os.mkdir(packages_dir)
     tarball = f"{packages_dir}/{software}.tar.{extension}"
@@ -277,6 +291,8 @@ def backup(software, prefix, backupdir, versions, extension, compresslevel, dere
     # generate module, and it's eventuals dependencies, archives (under directory backupdir)
     if versions is None:
         _software, versions = module_versions(software, prefix)
+    else:
+        _software = software
     match = None
     if len(versions) == 0:
         clara_exit(f"No software {_software} installed! PLS, build it first!")
@@ -289,6 +305,9 @@ def backup(software, prefix, backupdir, versions, extension, compresslevel, dere
             data = [i.strip() for x in match for i in ''.join(x).split('\n')]
             _software = versions[0].replace("/","-")
             software = "".join([name for name in data if name.endswith(".lua")])
+            if os.path.islink(software):
+                # replace if need trail /fs<cluster> prefix and add link real path to tar archive
+                data.insert(0, re.sub(r'^(\/fs\w+)', '', os.path.realpath(software)))
             # retrieve automatically dependency software prefix
             _prefix = os.path.commonpath(data)
             logging.debug(f"software: {_software}\ndata: {data}\nprefix: {_prefix}\nbackupdir: {backupdir}\n")
@@ -318,14 +337,16 @@ def replace_in_file(name, source, prefix):
 def restore(software, source, backupdir, prefix, extension):
     _module = software.replace("-","/").replace(".eb","")
     _software = software.replace("/","-")
-    packages_dir = f"{backupdir}/kwame"
+    packages_dir = f"{backupdir}/packages"
     tarball = f"{packages_dir}/{_software}.tar.{extension}"
+    umask = os.umask(0o022)
+
     if os.path.isfile(tarball):
         logging.info(f"restore tarball {tarball}\nunder prefix {prefix}")
         total_bytes = os.stat(tarball).st_size
         with tarfile.open(tarball, f"r:{extension}") as tf:
             members = [member for member in tf.getmembers()]
-            # for hidden module, we need to remove first dot on module mervsion!
+            # for hidden module, we need to remove first dot on module version!
             _module_ = "/".join([re.sub(r"^\.","",x) for x in _module.split("/")])
             basepath = "".join([member.name for member in members
                        if os.path.normpath(member.name).lower().endswith(_module_)
@@ -340,7 +361,7 @@ def restore(software, source, backupdir, prefix, extension):
                 _tmpname = next(tempfile._get_candidate_names())
                 _prefix = f"{prefix}/{_tmpname}"
                 _installpath = f"{_prefix}/{basepath}"
-                os.mkdir(_prefix)
+                os.makedirs(_installpath)
                 if not force:
                     if not yes_or_no(message):
                         logging.error("Abort software {software} installation!")
@@ -352,12 +373,23 @@ def restore(software, source, backupdir, prefix, extension):
             for member in members:
                 # replace in lua file prefix by destination prefi_x
                 if member.name.endswith(f"{_module}.lua"):
-                    #tf.extract(member, _prefix)
                     _name = f"{_prefix}/{member.name}"
-                    logging.info(f"working on file {_name} ...")
-                    #replace_in_file(_name, source, prefix)
+                    if member.issym():
+                        if os.path.islink(_name) and not os.path.exists(_name):
+                            clara_exit(f"symbolic link {_name} is probably broken!")
+                        link = member.linkname.replace(source, prefix)
+                        logging.info(f"creating symbolic link {link} to file {_name}")
+                        _parent = os.path.dirname(_name)
+                        if not os.path.isdir(_parent):
+                            os.makedirs(_parent)
+                        if not os.path.islink(_name):
+                            os.symlink(link, _name)
+                    else:
+                        logging.info(f"working on file {_name} ...")
+                        tf.extract(member, _prefix)
+                        replace_in_file(_name, source, prefix)
                 elif member.name.endswith("requirements.txt"):
-                    #tf.extract(member, _prefix)
+                    tf.extract(member, _prefix)
                     _name = f"{_prefix}/{member.name}"
                     logging.info(f"working on file {_name} ...")
                     if os.path.isfile(_name):
@@ -369,22 +401,26 @@ def restore(software, source, backupdir, prefix, extension):
                 else:
                     tf.extract(member, _prefix)
 
-            return
+            os.umask(umask)  # Restore umask
             if os.path.isdir(installpath) and _installpath is not None:
                 if os.path.isdir(_installpath):
                     backupdir = f"{prefix}/backups"
                     logging.info(f"backup previously installed in directory\n{_installpath} to {backupdir}!")
                     try:
+                        umask = os.umask(0o022)
                         if not os.path.isdir(backupdir):
                             os.mkdir(backupdir)
-                        _backupdir = f"{backupdir}/{_module.split('/')[0]}"
+                        time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        _backupdir = f"{backupdir}/{time}/{_module.split('/')[0]}"
                         if not os.path.isdir(_backupdir):
-                            os.mkdir(_backupdir)
+                            os.makedirs(_backupdir)
+                        os.umask(umask)  # Restore umask
+                        logging.info(f"moving current install directory {installpath}\nto {_backupdir}!")
                         shutil.move(installpath, _backupdir)
                     except EnvironmentError:
                         logging.error("Unable to move previously installed directory")
                     else:
-                        logging.info(f"moving temporary install directory {_installpath}\nto {installpath}!")
+                        logging.info(f"moving temporary restore directory {_installpath}\nto {installpath}!")
                         try:
                             shutil.move(_installpath, installpath)
                         except EnvironmentError:
@@ -392,9 +428,9 @@ def restore(software, source, backupdir, prefix, extension):
                         else:
                             logging.info(f"module {_module} successfully restored in {installpath}!")
                     finally:
-                        if os.path.isdir(_installpath):
-                            logging.info(f"remove temporary installed directory {_installpath}")
-                            shutil.rmtree(_installpath)
+                        if re.match(rf"{prefix}/\w+", _prefix) and os.path.isdir(_prefix):
+                            logging.info(f"suppress temporary installed directory {_prefix}")
+                            shutil.rmtree(_prefix)
                 else:
                     logging.info(f"directory {_installpath} don't exist!")
 
@@ -417,11 +453,16 @@ def delete(software, prefix):
                 return
             logging.debug(f"delete software {versions[0]}")
             data = [i.strip() for x in match for i in ''.join(x).split('\n')]
-            #_prefix = os.path.commonpath(data)
             for name in data:
                 if name.endswith(".lua"):
-                    logging.info(f"suppressing file {name}")
                     if os.path.isfile(name):
+                        if os.path.islink(name):
+                            _name = os.path.realpath(name)
+                            logging.info(f"suppressing link source file {_name}")
+                            os.unlink(_name)
+                            logging.info(f"suppressing symbolic link {name}")
+                        else:
+                            logging.info(f"suppressing file {name}")
                         os.unlink(name)
                     else:
                         logging.info(f"no file {name}!")
@@ -442,7 +483,7 @@ def delete(software, prefix):
         logging.error("can't suppress many software/module at same time!")
 
 def main():
-    global dry_run, eb
+    global dry_run, eb, force
 
     logging.debug(sys.argv)
     dargs = docopt.docopt(__doc__)
@@ -474,10 +515,7 @@ def main():
     # set default directory to install easybuild software
     # we have go with three ways to provide this prefix
     if prefix is None:
-        if dargs['delete'] or dargs['restore']:
-                prefix = '/software/shared/easybuild'
-        else:
-            prefix = f"{homedir}/.local/easybuild"
+        prefix = '/software/shared/easybuild'
     prefix = get_from_config_or("easybuild", "prefix", default=prefix)
 
     # set default easybuild custom configs base directory
