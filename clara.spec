@@ -177,7 +177,7 @@ Clara is a set of tools to help administering and installing clusters.
 %package plugin-easybuild
 Summary: This package provides the easybuild plugin of Clara.
 Group: Application/System
-Requires: clara-core python3-docopt python3-prettytable
+Requires: clara-core python3-docopt python3-prettytable Lmod
 %description plugin-easybuild
 Cluster administration tools easybuild plugin
 Clara is a set of tools to help administering and installing clusters.
