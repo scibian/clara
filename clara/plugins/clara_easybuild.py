@@ -36,11 +36,11 @@
 Manage software installation via easybuild
 
 Usage:
-    clara easybuild install <software> [--force] [--rebuild] [options]
+    clara easybuild install <software> [--force] [--rebuild] [--url=<url>] [options]
     clara easybuild backup  <software> [--force] [--backupdir=<backupdir>] [options]
-    clara easybuild restore <software> [--force] [--source=<source>] [options]
-    clara easybuild delete  <software> [options]
-    clara easybuild search  <software> [--width=<width>] [options]
+    clara easybuild restore <software> [--force] [--backupdir=<backupdir>] [--source=<source>] [options]
+    clara easybuild delete  <software> [--force] [options]
+    clara easybuild search  <software> [--force] [--width=<width>] [options]
     clara easybuild show    <software> [options]
     clara easybuild -h | --help | help
 
@@ -57,6 +57,7 @@ Options:
     --quiet                          Proceed silencely. Don't ask any question!
     --dry-run                        Just simulate migrate action! Don't really do anything
     --width=<width>                  Found easyconfigs files max characters per line [default: 100]
+    --url=<url>                      easybuild hook url to locally fetch source files
 """
 
 import logging
@@ -91,10 +92,11 @@ except:
 def module_path(prefix):
     if isinstance(prefix, str):
         modulepath = ":".join([ f"{prefix}/modules/{f.name}"
-                     for f in os.scandir(f"{prefix}/modules") if f.is_dir() and not f.name=="all" ])
+                     for f in os.scandir(f"{prefix}/modules") if f.is_dir() and not f.name=="all"
+                     and os.path.isdir(f"{prefix}/modules")])
     elif isinstance(prefix, list):
-        modulepath = ":".join([f"{x}/modules/{f.name}" for x in prefix
-                     for f in os.scandir(f"{x}/modules") if f.is_dir() and not f.name=="all" ])
+        modulepath = ":".join([f"{x}/modules/{f.name}" for x in prefix if os.path.isdir(f"{x}/modules")
+                     for f in os.scandir(f"{x}/modules") if f.is_dir() and not f.name=="all"])
     else:
         clara_exit("prefix must be either string, or list!")
 
@@ -111,7 +113,7 @@ def module_avail(name, prefix):
     # set MODULEPATH environment variable
     module_path(prefix)
 
-    _name = name.replace("-","/").replace(".eb","")
+    _name = re.sub(r"([^-]+-\d+)(.*)\.eb", r"\1/\2", name)
     output, error = module(f"--show_hidden avail {_name}")
 
     if not re.search(_name, error) and not re.search(r"\/\.", _name):
@@ -119,7 +121,11 @@ def module_avail(name, prefix):
         _name = "/".join([re.sub(r"^(\d+\.)", r".\1", x) for x in _name.split("/")])
         logging.debug(f"search hidden module {_name}")
         output, error = module(f"--show_hidden avail {_name}")
-    return _name, re.search(_name, error), error
+
+    match = re.search(rf"{_name}[^ ]*", error)
+    _name = match.group() if match else _name
+
+    return _name, match, error
 
 def show(software, prefix):
     name, match, output = module_avail(software, prefix)
@@ -129,51 +135,63 @@ def show(software, prefix):
         logging.info(f"No software {name} installed under prefix\n{', '.join(prefix)}!")
 
 def search(software, basedir, width):
-    cmd = [eb, '--hook', f'{basedir}/pre_fetch_hook.py',
-            '--robot', basedir, '--search', software]
-    output, _ = run(' '.join(cmd), shell=True)
-    pattern = re.compile(r' \* ([^ ]*\.eb)', re.DOTALL)
-    match = pattern.findall(output)
-    easyconfig = {}
+    if re.search(r"/", software):
+        message = "searching easybuild software including '/' won't work!"
+        message += "\nAre you sure you want to proceed any way?"
+        if not force:
+            if not yes_or_no(message):
+                return
+    match = re.search(r"(\w+[-\.\d]*)[\.eb]*", software.split("/")[-1])
     if match:
-        for x in match:
-            CFGS, path = os.path.dirname(x), os.path.basename(x)
-            if CFGS in easyconfig:
-                easyconfig[CFGS].append(path)
-            else:
-                easyconfig[CFGS] = [path]
+        _software = match.group()
+        cmd = [eb, '--hook', f'{basedir}/pre_fetch_hook.py',
+                '--robot', basedir, '--search', _software,
+                '--detect-loaded-modules=ignore', '--check-ebroot-env-vars=ignore']
+        output, _ = run(' '.join(cmd), shell=True)
+        pattern = re.compile(r' \* ([^ ]*\.eb)', re.DOTALL)
+        match = pattern.findall(output)
+        easyconfig = {}
+        if match:
+            for x in match:
+                CFGS, path = os.path.dirname(x), os.path.basename(x)
+                if CFGS in easyconfig:
+                    easyconfig[CFGS].append(path)
+                else:
+                    easyconfig[CFGS] = [path]
 
-        try:
-            table = prettytable()
-            table.field_names = ["easyconfig files"]
-        except:
-            table = f":{width}"
+            try:
+                table = prettytable()
+                table.field_names = ["easyconfig files"]
+            except:
+                table = f":{width}"
 
-        for CFGS, paths in easyconfig.items():
-            do_print(table, [CFGS])
-            do_print(table, [fill(" ".join(paths), width=width)])
+            for CFGS, paths in easyconfig.items():
+                do_print(table, [CFGS])
+                do_print(table, [fill(" ".join(paths), width=width)])
 
-        try:
-            if table._get_rows({'oldsortslice': False,'start': 0, 'end': 1, 'sortby': False}):
-                table.align["easyconfig files"] = "l"
-                count = 0
-                table_txt = ''
-                # simulate here some tricks not yet supported by prettytable used version!
-                for number, line in enumerate(table.get_string().split('\n')):
-                    if number == 0:
-                        horizontal = line
-                    if re.search(r'\/', line):
-                        if count:
-                            table_txt = '%s%s\n%s\n%s\n' % (table_txt, horizontal, line, horizontal)
+            try:
+                if table._get_rows({'oldsortslice': False,'start': 0, 'end': 1, 'sortby': False}):
+                    table.align["easyconfig files"] = "l"
+                    count = 0
+                    table_txt = ''
+                    # simulate here some tricks not yet supported by prettytable used version!
+                    for number, line in enumerate(table.get_string().split('\n')):
+                        if number == 0:
+                            horizontal = line
+                        if re.search(r'\/', line):
+                            if count:
+                                table_txt = '%s%s\n%s\n%s\n' % (table_txt, horizontal, line, horizontal)
+                            else:
+                                count += 1
+                                table_txt = '%s%s\n%s\n' % (table_txt, line, horizontal)
                         else:
-                            count += 1
-                            table_txt = '%s%s\n%s\n' % (table_txt, line, horizontal)
-                    else:
-                        table_txt = '%s%s\n' % (table_txt, line)
-            # print transformed table!
-            print(table_txt)
-        except:
-            print(table)
+                            table_txt = '%s%s\n' % (table_txt, line)
+                # print transformed table!
+                print(table_txt)
+            except:
+                print(table)
+        else:
+            logging.warn(f"no easyconfig file for software {software}!")
     else:
         logging.warn(f"no easyconfig file for software {software}!")
 
@@ -302,7 +320,7 @@ def backup(software, prefix, backupdir, versions, extension, compresslevel, dere
         pattern = re.compile(r' (.*\.lua):| [/fs]?[\w]*(/.*\.lua):|EBROOT[^,]*,"([^"]*)"', re.DOTALL)
         match = pattern.findall(error)
         if match:
-            data = [i.strip() for x in match for i in ''.join(x).split('\n')]
+            data = [re.sub(r'^(\/fs\w+)', '', os.path.realpath(i.strip())) for x in match for i in ''.join(x).split('\n')]
             _software = versions[0].replace("/","-")
             software = "".join([name for name in data if name.endswith(".lua")])
             if os.path.islink(software):
@@ -335,7 +353,7 @@ def replace_in_file(name, source, prefix):
         f.write(data)
 
 def restore(software, source, backupdir, prefix, extension):
-    _module = software.replace("-","/").replace(".eb","")
+    _module = re.sub(r"([^-]+-\d+)(.*)\.eb", r"\1/\2", software)
     _software = software.replace("/","-")
     packages_dir = f"{backupdir}/packages"
     tarball = f"{packages_dir}/{_software}.tar.{extension}"
@@ -346,8 +364,11 @@ def restore(software, source, backupdir, prefix, extension):
         total_bytes = os.stat(tarball).st_size
         with tarfile.open(tarball, f"r:{extension}") as tf:
             members = [member for member in tf.getmembers()]
+            # support module like A1/A2/.../An, splitting it only per first and
+            # last componant. For instance, intel compilers related modules.
             # for hidden module, we need to remove first dot on module version!
-            _module_ = "/".join([re.sub(r"^\.","",x) for x in _module.split("/")])
+            _list = _module.split("/")
+            _module_ = "/".join([re.sub(r"^\.","",x) for x in _list[::len(_list)-1]])
             basepath = "".join([member.name for member in members
                        if os.path.normpath(member.name).lower().endswith(_module_)
                        or member.name.endswith(_module_)])
@@ -356,7 +377,7 @@ def restore(software, source, backupdir, prefix, extension):
                 clara_exit(f"Can't find module {_module} in tarball {tarball}")
 
             if os.path.isdir(installpath):
-                message = f"Module {_module} already installed under {installpath}!"
+                message = f"Module {_module} is already installed under {installpath}!"
                 message = f"{message}\nDo you want to install it again!?!"
                 _tmpname = next(tempfile._get_candidate_names())
                 _prefix = f"{prefix}/{_tmpname}"
@@ -364,11 +385,12 @@ def restore(software, source, backupdir, prefix, extension):
                 os.makedirs(_installpath)
                 if not force:
                     if not yes_or_no(message):
-                        logging.error("Abort software {software} installation!")
+                        logging.error(f"Abort software {software} installation!")
                         return
             else:
                 _installpath = None
                 _prefix = prefix
+                _tmpname = None
 
             for member in members:
                 # replace in lua file prefix by destination prefi_x
@@ -387,7 +409,8 @@ def restore(software, source, backupdir, prefix, extension):
                     else:
                         logging.info(f"working on file {_name} ...")
                         tf.extract(member, _prefix)
-                        replace_in_file(_name, source, prefix)
+                        if not source == prefix:
+                            replace_in_file(_name, source, prefix)
                 elif member.name.endswith("requirements.txt"):
                     tf.extract(member, _prefix)
                     _name = f"{_prefix}/{member.name}"
@@ -428,7 +451,10 @@ def restore(software, source, backupdir, prefix, extension):
                         else:
                             logging.info(f"module {_module} successfully restored in {installpath}!")
                     finally:
-                        if re.match(rf"{prefix}/\w+", _prefix) and os.path.isdir(_prefix):
+                        # ensure _prefix is directory stricly under prefix!
+                        # we recall here previously declared _prefix value, for clarity!
+                        _prefix = f"{prefix}/{_tmpname}"
+                        if not _tmpname == None and re.match(rf"{prefix}/\w+", _prefix) and os.path.isdir(_prefix):
                             logging.info(f"suppress temporary installed directory {_prefix}")
                             shutil.rmtree(_prefix)
                 else:
@@ -447,12 +473,15 @@ def delete(software, prefix):
         pattern = re.compile(r' (.*\.lua):| [/fs]?[\w]*(/.*\.lua):|EBROOT[^,]*,"([^"]*)"', re.DOTALL)
         match = pattern.findall(error)
         if match:
-            message = f"Are you sure you want to remove software {_software},\nunder prefix {prefix} ?"
-            if not yes_or_no(message):
-                logging.error(f"You choose to no more removed software {_software}!")
-                return
-            logging.debug(f"delete software {versions[0]}")
             data = [i.strip() for x in match for i in ''.join(x).split('\n')]
+            _data = '\n'.join(data)
+            message = "\nAre you sure you want to remove bellow files/directory "
+            message += "of software {}:\n\n{}\n\n".format(_software, _data)
+            if not force:
+                if not yes_or_no(message):
+                    logging.info(f"You choose to no more removed software {_software}!")
+                    return
+            logging.debug(f"suppressing software {versions[0]} under path\n{_data}")
             for name in data:
                 if name.endswith(".lua"):
                     if os.path.isfile(name):
@@ -497,12 +526,21 @@ def main():
     compresslevel = int(dargs['--compresslevel'])
     dereference = dargs['--dereference']
 
+    if (dargs['delete'] or dargs['restore']) and not re.search(r"(admin|service)", os.uname()[1]):
+        clara_exit("easybuild deployment or deletion is only supported on admin or service nodes!")
+
+    if (dargs['install'] or dargs['delete']) and not (os.path.isfile("/usr/share/lmod/lmod/libexec/lmod")):
+        clara_exit("required Lmod package seem's not installed!")
+
     homedir = os.environ["HOME"]
 
     # set default config file
-    _path = os.path.abspath(f"{homedir}/.config/easybuild.ini")
-    if conf.config is None and os.path.isfile(_path):
-        conf.config = _path
+    if os.geteuid() == 0:
+        config = '/etc/clara/config.ini'
+    else:
+        config = os.path.abspath(f"{homedir}/.config/easybuild.ini")
+    if conf.config is None and os.path.isfile(config):
+        conf.config = config
 
     eb = dargs['--eb']
     eb = get_from_config_or("easybuild", "binary", default=eb)
@@ -517,6 +555,8 @@ def main():
     if prefix is None:
         prefix = '/software/shared/easybuild'
     prefix = get_from_config_or("easybuild", "prefix", default=prefix)
+    # ensure prefix is real path to enforce security and safety!
+    prefix = os.path.realpath(prefix)
 
     # set default easybuild custom configs base directory
     # standfor for copy of easybuid config file from example repository:
@@ -525,19 +565,39 @@ def main():
     if basedir is None:
         basedir = f'{homedir}/easybuild'
     basedir = get_from_config_or("easybuild", "basedir", default=basedir)
-    _path = f"{basedir}/pre_fetch_hook.py"
-    if not (os.path.isdir(basedir) and os.path.isfile(_path)):
-        message = f"""\nyou must use either switch --basedir nor config file
+    hook = f"{basedir}/pre_fetch_hook.py"
+    if dargs['install']:
+        if os.path.isdir(basedir):
+            if not os.path.isfile(hook):
+                logging.warn(f"file {hook} don't exist! Do you want us")
+                message = f"to create for you default file {hook}?"
+                if yes_or_no(message):
+                    url = get_from_config_or("easybuild", "url", default=dargs['--url'])
+                    if url is None:
+                        message = "You must use switch --url to provide hook url\n"
+                        message += f"or create file {hook} manually!"
+                        clara_exit(message)
+                    with open(hook, "w") as f:
+                        f.write(f"""def pre_fetch_hook(self):
+    "add custom url for source vua of pre-fetch hook"
+    url = '{url}'
+    path = '%(nameletterlower)s/%(name)s'
+    self.log.info("[pre-fetch hook] add url %s !" % url)
+    self.cfg['source_urls'] = self.cfg['source_urls'] + ['%s/%s' % (url, x) for x in ['', path, '%s/extensions' % path]]
+                        \n""")
+                else:
+                    clara_exit("You must create it manually!")
+        else:
+            message = f"""\nyou must use either switch --basedir nor config file
 Indeed, either base directory {basedir}
-or file {_path} don't exist!
 It's recommended to create your own config file with:
 basedir=<your base dir here>
-cat <<EOF>> ~/.config/easybuild.ini
+cat <<EOF>> {config}
 basedir=$basedir
 EOF
-~/.config/easybuild.ini it's the default config file. So no need to use --config!
-                  """
-        clara_exit(message)
+{config} it's the default config file. So no need to use --config!
+                      """
+            clara_exit(message)
 
     pythonpath = os.environ.get("PYTHONPATH",'')
     modulepath = os.environ.get("MODULEPATH",'')
@@ -549,7 +609,7 @@ EOF
 
     backupdir =  dargs['--backupdir']
     if backupdir is None and dargs['restore']:
-        backupdir = f"{prefix}/packages"
+        backupdir = prefix
     backupdir = get_from_config_or("easybuild", "backupdir", default=backupdir)
 
     if eb:
@@ -566,7 +626,7 @@ EOF
             if os.path.isdir(f"{_path}/modules"):
                 modulepath += f":{_path}/modules/all"
                 break
-    else:
+    elif dargs['install'] or dargs['search']:
         if shutil.which('eb'):
             eb = 'eb'
         else:
