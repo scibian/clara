@@ -185,7 +185,7 @@ def clush(hosts, cmds):
                                       output.message().decode('utf8')))
 
 
-def run(cmd, exit_on_error=True, stdin=None, input=None, stdout=None, stderr=None, shell=False):
+def run(cmd, exit_on_error=True, stdin=None, input=None, stdout=None, stderr=None, shell=False, debug=True):
     """Run a command and check its return code.
 
        Arguments:
@@ -195,7 +195,8 @@ def run(cmd, exit_on_error=True, stdin=None, input=None, stdout=None, stderr=Non
            function raises an RuntimeError exception.
      """
 
-    logging.debug("utils/run: %s" % cmd if shell else " ".join(cmd))
+    if debug:
+        logging.debug("utils/run: %s" % cmd if shell else " ".join(cmd))
 
     try:
         if shell:
@@ -215,7 +216,7 @@ def run(cmd, exit_on_error=True, stdin=None, input=None, stdout=None, stderr=Non
         if exit_on_error:
             clara_exit(' '.join(cmd))
         elif shell:
-            return cmd, retcode
+            return error.decode(), retcode
         else:
             raise RuntimeError("Error {0} while running cmd: {1}" \
                                .format(retcode, ' '.join(cmd)))
@@ -399,7 +400,8 @@ def module(command, *arguments, **kwargs):
     module('load', 'gcc cmake', show_environ_updates=True)
     """
     numArgs = len(arguments)
-    A = ['/usr/share/lmod/lmod/libexec/lmod', 'python', command]
+
+    A = [f"{os.environ.get('EBROOTLMOD','/usr/share')}/lmod/lmod/libexec/lmod", 'python', command]
     if (numArgs == 1):
         A += arguments[0].split()
     else:
