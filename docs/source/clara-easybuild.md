@@ -6,7 +6,7 @@ clara-easybuild - Manage package installation via easybuild
 
 # SYNOPSIS
 
-    clara easybuild install <software> [--force] [--rebuild] [--skip] [--inject-checksums] [--url=<url>] [options]
+    clara easybuild install <software> [--force] [--rebuild] [--skip] [--inject-checksums] [--url=<url>] [-e <name>=<value>]... [options]
     clara easybuild backup  <software> [--force] [--backupdir=<backupdir>] [--yes-i-really-really-mean-it] [--elapse <elapse>] [options]
     clara easybuild restore <software> [--force] [--backupdir=<backupdir>] [--source=<source>] [--yes-i-really-really-mean-it] [--devel] [options]
     clara easybuild delete  <software> [--force] [options]
@@ -15,6 +15,7 @@ clara-easybuild - Manage package installation via easybuild
     clara easybuild hide    <software> [options]
     clara easybuild fetch   <software> [--inject-checksums] [options]
     clara easybuild default <software> [options]
+    clara easybuild copy    <software> [<target>] [options]
     clara easybuild -h | --help | help
 
 Options:
@@ -55,34 +56,53 @@ This tar archive can be used to installation on another cluster!
         Search and retrieve all software retated to <software>
         print <width> characters per line
 
-    clara easybuild delete <software> [options]
+    clara easybuild delete  <software> [--force] [options]
 
-        Delete easybuild software <software>
+        Delete easybuild software <software>.
+        Use --force for unattended deletion.
 
     clara easybuild fetch <software> [options]
 
         Fetch easybuild software <software>
 
-    clara easybuild install <software> [--force] [--rebuild] [options]
+    clara easybuild install <software> [--force] [--rebuild] [--skip] [--inject-checksums] [--url=<url>] [-e <name>=<value>]... [options]
 
-        Add packages to the local easybuildsitory.
-        <file> can be one or more *.(deb|rpm) binaries, *.changes files or *.dsc files.
-        For the --reprepro-flags, check the documentation of reprepro.
+        Install easybuild software <software> under <prefix> directory.
+        Use --rebuild to force re-installation.
+        Use --yes-i-really-really-mean-it to force dependencies re-installation too!
+        Use --force for unattended re-installation.
+        Use --skip for extensions only installation (for Python, Perl).
+        Use --inject-checksums to inject sources/patches checksums into easyconfig file(s)
+        Use --url to locally fetch source archive files. Needful for switch --hook
 
-    clara easybuild backup  <software> [--force] [--backupdir=<backupdir>] [options]
+    clara easybuild backup  <software> [--force] [--backupdir=<backupdir>] [--yes-i-really-really-mean-it] [--elapse <elapse>] [options]
 
-        Remove package to the local easybuildsitory.
-        <name> is the package to remove, if the package is a source name, it'll also
-        remove all the associated binaries.
+        Backup easybuild software <software> under <prefix> directory to target <backupdir>.
+        Use --backupdir for backup archive destination.
+        Use --yes-i-really-really-mean-it to force dependencies backup too!
+        Use --force for unattended software re-installation.
+        Use --elapse to delay after which backup file can be regenerated
 
-    clara easybuild restore <software> [--force] [--source=<source>] [options]
+    clara easybuild restore <software> [--force] [--backupdir=<backupdir>] [--source=<source>] [--yes-i-really-really-mean-it] [--devel] [options]
 
-        Lists all the contents of every easybuildsitory with the argument "all", or only
-        rpm easybuildsitory, or deb one, or only the content of a given distribution.
+        Restore easybuild software <software> under <prefix> directory, from <backupdir>.
+        Use --backupdir for backup archive destination.
+        Use --source to specify backup <prefix>. Default is <prefix>.
+        Use --yes-i-really-really-mean-it to force dependencies restore too!
+        Use --force for unattended existent installed software restore.
+        Use --devel to restore easybuild develop module files. Default is not to restore.
 
     clara easybuild hide <software> [options]
 
         Hide easybuild software <software>
+
+    clara easybuild default <software> [options]
+
+        Set easybuild software <software> as default
+
+    clara easybuild copy    <software> [<target>] [options]
+
+        Copy easybuild software <software> to <target> name, under <basedir>.
 
 Easybuild software <software> must follow either <name>-<version> or <name>/<version>\
 name scheme. <version> is optional and trailing ".eb" suffix can be optionally added.
@@ -141,18 +161,36 @@ To search all easyconfigs file related to software HelloWorld
 To delete easybuild software HelloWorld
 
     clara easybuild delete HelloWorld/0.0.1
+    clara easybuild delete HelloWorld/0.0.1 --force
 
 To install easybuild software HelloWorld
 
     clara easybuild install HelloWorld/0.0.1
+    clara easybuild install HelloWorld/0.0.1 --force
+    clara easybuild install HelloWorld/0.0.1 --force --skip
+    clara easybuild install HelloWorld/0.0.1 --rebuild
+    clara easybuild install HelloWorld/0.0.1 --yes-i-really-really-mean-it
+    clara easybuild install HelloWorld/0.0.1 --yes-i-really-really-mean-it --force
+    clara easybuild install HelloWorld/0.0.1 --inject-checksums
 
 To backup easybuild software HelloWorld
 
     clara easybuild backup HelloWorld/0.0.1
+    clara easybuild backup HelloWorld/0.0.1 --backupdir /tmp
+    clara easybuild backup HelloWorld/0.0.1 --force
+    clara easybuild backup HelloWorld/0.0.1 --elaspe 20
+    clara easybuild backup HelloWorld/0.0.1 --yes-i-really-really-mean-it
+    clara easybuild backup HelloWorld/0.0.1 --yes-i-really-really-mean-it --force
 
 To restore easybuild software HelloWorld
 
     clara easybuild restore HelloWorld/0.0.1
+    clara easybuild restore HelloWorld/0.0.1 --backupdir /tmp
+    clara easybuild restore HelloWorld/0.0.1 --force
+    clara easybuild retsore HelloWorld/0.0.1 --yes-i-really-really-mean-it
+    clara easybuild retsore HelloWorld/0.0.1 --yes-i-really-really-mean-it --force
+    clara easybuild restore HelloWorld/0.0.1 --devel
+    clara easybuild restore HelloWorld/0.0.1 --source $HOME/.local/easybuild
 
 To hide easybuild software HelloWorld
 
@@ -165,6 +203,13 @@ To fetch easybuild software HelloWorld
 To default easybuild software HelloWorld
 
     clara easybuild default HelloWorld/0.0.1
+
+To copy easybuild software HelloWorld
+
+    clara easybuild copy HelloWorld-0.0.1.eb
+    clara easybuild copy HelloWorld-0.0.1.eb HelloWorld-0.0.2.eb
+    clara easybuild copy HelloWorld-0.0.1.eb /tmp
+
 
 
 # SEE ALSO
