@@ -36,15 +36,16 @@
 Manage software installation via easybuild
 
 Usage:
-    clara easybuild install <software> [--force] [--rebuild] [--skip] [--inject-checksums] [--url=<url>] [options]
+    clara easybuild install <software> [--force] [--rebuild] [--skip] [--inject-checksums] [--url=<url>] [-e <name>=<value>]... [options]
     clara easybuild backup  <software> [--force] [--backupdir=<backupdir>] [--yes-i-really-really-mean-it] [--elapse <elapse>] [options]
     clara easybuild restore <software> [--force] [--backupdir=<backupdir>] [--source=<source>] [--yes-i-really-really-mean-it] [--devel] [options]
     clara easybuild delete  <software> [--force] [options]
     clara easybuild search  <software> [--force] [--width=<width>] [options]
     clara easybuild show    <software> [options]
-    clara easybuild hide    <software> [options]
+    clara easybuild hide    <software> [--clean] [options]
     clara easybuild fetch   <software> [--inject-checksums] [options]
     clara easybuild default <software> [options]
+    clara easybuild copy    <software> [<target>] [options]
     clara easybuild -h | --help | help
 
 Options:
@@ -98,8 +99,35 @@ except:
     print("[WARN] PLS raise 'pip install prettytable' or install 'python3-prettytable' software!")
     pass
 
+def copy(software, basedir, target):
+    software = re.sub(r'/(\.)?', '-', software)
+    if not software.endswith(".eb"):
+        software = f"{software}.eb"
+
+    path_dir = "{}/{}/{}".format(basedir, software[0].lower(),
+            re.split(r'[/-]', software)[0])
+    if not dry_run:
+        os.makedirs(path_dir, exist_ok=True)
+    path = f"{path_dir}/{target}"
+
+    _dry_run = '--dry-run' if dry_run else ''
+    cmd = [eb ,'--robot', basedir, _dry_run, '--hook',
+           f'{basedir}/pre_fetch_hook.py', '--copy-ec', software, path]
+
+    output, retcode = run(' '.join(cmd), shell=True, exit_on_error=False)
+    if isinstance(retcode, int) and not retcode == 0:
+        logging.debug(output)
+        clara_exit(f"fail to copy software {software} spec to {path} :-( !")
+    else:
+        logging.info(f"successfully copy software {software} spec to {path}")
+        logging.debug(f"output:\n{output}")
+        return output
+
 def module_path(prefix):
     if isinstance(prefix, str):
+        if not os.path.isdir(f"{prefix}/modules"):
+            clara_exit(f"no directory modules found under {prefix}!")
+
         modulepath = ":".join([ f"{prefix}/modules/{f.name}"
                      for f in os.scandir(f"{prefix}/modules") if f.is_dir() and not f.name=="all"
                      and os.path.isdir(f"{prefix}/modules")])
@@ -117,13 +145,17 @@ def module_path(prefix):
     os.environ["MODULEPATH"] = modulepath
     logging.debug(f"MODULEPATH:\n{modulepath}")
 
-def module_avail(name, prefix):
+def module_avail(name, prefix, rebuild=False):
 
     # set MODULEPATH environment variable
     module_path(prefix)
 
     if not re.match(r"[^-]+-[^\/]+\/", name):
         name = re.sub(r"([^-\/]+)[-\/](\.)?(.*)(\.eb)?", r"\1/\2\3", name)
+
+    if rebuild:
+        return name, None, 0
+
     output, error = module(f"--show_hidden avail {name}")
 
     if isinstance(error, int) and not error == 0:
@@ -174,7 +206,7 @@ def default(software, prefix):
     else:
         logging.info(f"No software {name} installed under prefix\n{', '.join(prefix)}!")
 
-def hide(software, prefix):
+def hide(software, prefix, clean):
     output, error = module("--version")
     match = re.search(r': Version ([\.\w]+)', error)
     if not match:
@@ -200,19 +232,52 @@ def hide(software, prefix):
 
         if len(match) == 1:
             path = os.path.dirname("".join(match))
-            modulerc = f"{path}/.modulerc.lua"
-            if os.path.isfile(modulerc):
-                logging.info(f"software {name} under {prefix} was already hidden!")
-            else:
-                try:
+            defaultlua = f"{path}/default"
+            if os.path.exists(defaultlua):
+                message = f"default file {defaultlua} exist and it's can work this way to hide module!"
+                message += "\nDo you want it to be deleted ?"
+                if not force:
+                    if not yes_or_no(message):
+                        clara_exit(f"hidden to software {name} under {prefix} have been aborted!")
+            if os.path.islink(defaultlua):
+                logging.debug(f"suppressing existent link default {defaultlua} ...")
+                os.unlink(defaultlua)
+            elif os.path.isfile(defaultlua):
+                logging.debug(f"suppressing existent file default {defaultlua} ...")
+                os.remove(defaultlua)
 
-                    with open(path, "w") as f:
-                        f.write(f"""name={name}
-                        \n""")
-                except:
-                    clara_exit(f"fail to hide software {name} under {prefix}!")
-                else:
-                    show(software, prefix)
+            modulerc = f"{path}/.modulerc.lua"
+            if clean and os.path.isfile(modulerc):
+                os.remove(modulerc)
+                clara_exit(f"module hidden file {modulerc} have been deleted!")
+
+            module_name = software.split('/')[0]
+            _name = module_name if software==module_name else name
+            try:
+                # open file in read/write to be able to update it, if need!
+                with open(modulerc, "a+") as f:
+                    f.seek(0)
+                    data = f.read()
+                    if 'name=' in data:
+                        match = re.search(r"name=[\{]?([^\}]+)[\}]?", data, re.DOTALL)
+                        # Do anything if module have been already hidden!
+                        if module_name == match.group(1) or name in match.group(1):
+                            logging.debug(f"module {_name} already hidden!")
+                        else:
+                            logging.info(f"hidding software {_name} using file {modulerc}!")
+                            f.seek(0)
+                            f.truncate()
+                            f.write("hide{name={%s,'%s'}}" % (match.group(1),_name))
+                    else:
+                        # if it's first time
+                        # when module name (without version) have been provided, use it instead of
+                        # automatically retrieving from module_avail function
+                        logging.info(f"[DEBUG] hidding software {_name} using file {modulerc}!")
+                        f.write("hide{name='%s'}" % _name)
+            except:
+                clara_exit(f"fail to hide software {name} under {prefix}!")
+            else:
+                show(module_name, prefix)
 
     else:
         logging.info(f"No software {name} installed under prefix\n{', '.join(prefix)}!")
@@ -331,9 +396,9 @@ def fetch(software, basedir, checksums):
         logging.debug(f"output:\n{output}")
         return output
 
-def install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip):
+def install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip, options):
     # suppress, if need, ".eb" suffix
-    name, match, _ = module_avail(software, prefix)
+    name, match, _ = module_avail(software, prefix, rebuild=rebuild)
     if re.search(r"/|-", name) is None:
         clara_exit(f"Bad software name: {name}. PLS software must follow scheme <name>/<version>")
     software = re.sub(r'/(\.)?', '-', name)
@@ -348,9 +413,10 @@ def install(software, prefix, basedir, rebuild, only_dependencies, force, recurs
         dependencies = get_dependencies(_software, prefix, basedir, rebuild or only_dependencies)
 
     # if need, retrieve newly installed software path
-    for installed, _, software in dependencies:
-        if not installed or rebuild:
-            install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip)
+    if recurse:
+        for installed, _, software in dependencies:
+            if not installed or rebuild:
+                install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip, options)
 
     if not only_dependencies:
         fetch(_software, basedir, checksums)
@@ -362,6 +428,8 @@ def install(software, prefix, basedir, rebuild, only_dependencies, force, recurs
             cmd += ['--rebuild']
         if skip:
             cmd += ['--skip']
+        for option in options:
+            cmd += [f"--{option}"]
         # enforce installation only in specified prefix directory
         # For instance to ensure no direct installation in prod
         # target destination path installation can be safely deploy later!
@@ -510,13 +578,15 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
                 _module_ = "/".join([re.sub(r"^\.","",x) for x in _list[::len(_list)-1]])
             else:
                 _module_ = "/".join([re.sub(r"^\.","",x) for x in _list])
-            version = re.search(r"([\d\.]+)", _module_.split("/")[-1]).group(1)
+            version = re.search(r"([\d\.\-\_]+)", _module_.split("/")[-1]).group(1)
             basepath = "".join([member.name for member in members
                        if os.path.normpath(member.name).lower().endswith(version)
                        or member.name.endswith(version)])
             installpath = f"{prefix}/{basepath}"
             if basepath == '':
-                clara_exit(f"Can't find module {_module_} in tarball {tarball}")
+                message = f"Can't find module {_module_} in tarball {tarball}\n"
+                message += f"archive have a base path {basepath}"
+                clara_exit(message)
 
             if os.path.isdir(installpath):
                 message = f"Module {_module} is already installed under {installpath}!"
@@ -559,11 +629,13 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
                     else:
                         logging.info(f"working on file {_name} ...")
                         tf.extract(member, _prefix, set_attrs=False)
-                        os.chmod(_name, member.mode)
+                        if not os.path.islink(_name):
+                            os.chmod(_name, member.mode)
                         replace_in_file(_name, source, prefix)
                 elif not f"{version}/easybuild" in member.name or devel:
                     tf.extract(member, _prefix, set_attrs=False)
-                    os.chmod(_name, member.mode)
+                    if not os.path.islink(_name):
+                        os.chmod(_name, member.mode)
 
                 if not f"{version}/easybuild" in member.name or devel:
                     try:
@@ -806,7 +878,7 @@ EOF
             if os.path.isdir(f"{_path}/modules"):
                 modulepath += f":{_path}/modules/all"
                 break
-    elif dargs['install'] or dargs['search'] or dargs['fetch']:
+    elif dargs['install'] or dargs['search'] or dargs['fetch'] or dargs['copy']:
         clara_exit("no easybuild binary found in your path. PLS raise: module EasyBuild or provide easybuild binary via --eb switch")
     _path = shutil.which('python3')
     if _path:
@@ -821,7 +893,7 @@ EOF
     elif dargs['fetch']:
         fetch(software, basedir, checksums)
     elif dargs['install']:
-        install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip)
+        install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip, dargs['<name>=<value>'])
     elif dargs['backup']:
         backup(software, prefix, backupdir, None, extension, compresslevel, dereference, force, recurse, suffix, elapse)
     elif dargs['restore']:
@@ -829,9 +901,11 @@ EOF
     elif dargs['delete']:
         delete(software, prefix, force)
     elif dargs['hide']:
-        hide(software, prefix)
+        hide(software, prefix, dargs['--clean'])
     elif dargs['default']:
         default(software, prefix)
+    elif dargs['copy']:
+        copy(software, basedir, dargs['<target>'] if dargs['<target>'] else software)
 
 if __name__ == '__main__':
     main()
