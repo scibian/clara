@@ -4,7 +4,7 @@
 # Main preamble
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
-Version: 0.20241202
+Version: 0.20241203
 Release:  1%{?dist}.edf
 Source0: %{name}-%{version}.tar.gz
 License: GPLv3
@@ -296,6 +296,7 @@ Clara is a set of tools to help administering and installing clusters.
 %changelog
 * Tue Dec 03 2024 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20241203-1el8.edf
 - add package Lmod as easybuild dependency
+- Release 0.20241203
 
 * Mon Dec 02 2024 Kwame Amedodji <kwame-externe.amedodji@edf.fr> 0.20241202-1el8.edf
 - New upstream release 0.20241202
