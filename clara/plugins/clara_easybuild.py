@@ -36,7 +36,7 @@
 Manage software installation via easybuild
 
 Usage:
-    clara easybuild install <software> [--force] [--rebuild] [--skip] [--inject-checksums] [--url=<url>] [-e <name>=<value>]... [options]
+    clara easybuild install <software> [--force] [--container=<container>] [--skip] [--inject-checksums] [--url=<url>] [-e <name>=<value>]... [options]
     clara easybuild backup  <software> [--force] [--backupdir=<backupdir>] [--yes-i-really-really-mean-it] [--elapse <elapse>] [options]
     clara easybuild restore <software> [--force] [--backupdir=<backupdir>] [--source=<source>] [--yes-i-really-really-mean-it] [--devel] [options]
     clara easybuild delete  <software> [--force] [options]
@@ -66,8 +66,9 @@ Options:
     --suffix=<suffix>                Add suffix word in tarball name
     --no-suffix                      No suffix in tarball name
     --inject-checksums               Let EasyBuild add or update checksums in one or more easyconfig files
-    --skip                           Installing additional extensions when combined with --rebuild
+    --skip                           Installing additional extensions when combined with --force
     --elapse <elapse>                Elapse time en seconds after which backup file can be regenerated [default: 300]
+    --no-container                   Don't use container image. Only singularity is supported
 """
 
 import logging
@@ -396,7 +397,7 @@ def fetch(software, basedir, checksums):
         logging.debug(f"output:\n{output}")
         return output
 
-def install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip, options):
+def install(software, prefix, basedir, rebuild, only_dependencies, recurse, checksums, skip, options, container):
     # suppress, if need, ".eb" suffix
     name, match, _ = module_avail(software, prefix, rebuild=rebuild)
     if re.search(r"/|-", name) is None:
@@ -405,7 +406,7 @@ def install(software, prefix, basedir, rebuild, only_dependencies, force, recurs
     _software = f"{software}.eb"
     if match and not rebuild:
         message = f"\nsoftware {_software} already exist under {prefix}!"
-        message += f"\nuse switch --rebuild to install it again!"
+        message += f"\nuse switch --force to install it again!"
         logging.info(message)
         return
     else:
@@ -416,7 +417,7 @@ def install(software, prefix, basedir, rebuild, only_dependencies, force, recurs
     if recurse:
         for installed, _, software in dependencies:
             if not installed or rebuild:
-                install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip, options)
+                install(software, prefix, basedir, rebuild, only_dependencies, recurse, checksums, skip, options, container)
 
     if not only_dependencies:
         fetch(_software, basedir, checksums)
@@ -424,12 +425,18 @@ def install(software, prefix, basedir, rebuild, only_dependencies, force, recurs
     _dry_run = '--dry-run' if dry_run and not checksums else ''
     if not only_dependencies:
         cmd = [eb ,'--robot', basedir, _dry_run, '--hook', f'{basedir}/pre_fetch_hook.py', _software]
+        cmd += ['--buildpath', f"{prefix}/build", '--installpath', prefix, '--prefix', prefix]
+        cmd += ['--containerpath', f"{prefix}/containers", '--packagepath', f"{prefix}/packages"]
+        cmd += [_software]
         if rebuild:
             cmd += ['--rebuild']
         if skip:
             cmd += ['--skip']
         for option in options:
             cmd += [f"--{option}"]
+        # use singularity container to avoid prefix realpath in builded easybuild software!
+        if container and not prefix == os.path.realpath(prefix):
+            cmd = ['singularity', 'exec', '-B', prefix, container] + cmd
         # enforce installation only in specified prefix directory
         # For instance to ensure no direct installation in prod
         # target destination path installation can be safely deploy later!
@@ -548,7 +555,8 @@ def backup(software, prefix, backupdir, versions, extension, compresslevel, dere
         pprint(f"many packages found!: {versions}")
 
 def replace_in_file(name, source, prefix):
-    logging.debug(f"replace {source} by {prefix}\nin file {name}")
+    if not source == prefix:
+        logging.debug(f"replace {source} by {prefix}\nin file {name}")
     with open(name, 'r') as f:
         data = f.read()
         data = re.sub(r'(\/fs\w+)', '', data.replace(source, prefix))
@@ -582,6 +590,7 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
             basepath = "".join([member.name for member in members
                        if os.path.normpath(member.name).lower().endswith(version)
                        or member.name.endswith(version)])
+            _modulepath = {}
             installpath = f"{prefix}/{basepath}"
             if basepath == '':
                 message = f"Can't find module {_module_} in tarball {tarball}\n"
@@ -616,10 +625,13 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
                                 logging.info(f"restore  software {_software} ...")
                                 restore(_software, source, backupdir, prefix, extension, force, recurse, suffix, devel)
                 elif member.name.endswith(f"{_module}.lua"):
+                    _modulepath[_name] = None
                     if member.issym():
                         if os.path.islink(_name) and not os.path.exists(_name):
                             clara_exit(f"symbolic link {_name} is probably broken!")
                         link = member.linkname.replace(source, prefix)
+                        # replace if need trail /fs<cluster> prefix
+                        link = re.sub(r'^(\/fs\w+)', '', link)
                         logging.info(f"creating symbolic link {link} to file {_name}")
                         _parent = os.path.dirname(_name)
                         if not os.path.isdir(_parent):
@@ -649,7 +661,6 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
             if os.path.isdir(installpath) and _installpath is not None:
                 if os.path.isdir(_installpath):
                     backupdir = f"{prefix}/backups"
-                    logging.info(f"backup previously installed in directory\n{_installpath} to {backupdir}!")
                     try:
                         umask = os.umask(0o022)
                         if not os.path.isdir(backupdir):
@@ -659,14 +670,27 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
                         if not os.path.isdir(_backupdir):
                             os.makedirs(_backupdir)
                         os.umask(umask)  # Restore umask
-                        logging.info(f"moving current install directory {installpath}\nto {_backupdir}!")
+                        logging.info(f"backup current installed directory {installpath}\n               moving it to {_backupdir}!")
                         shutil.move(installpath, _backupdir)
+                        for _path in _modulepath:
+                            if os.path.exists(_path):
+                                path = _path.replace(_prefix, prefix)
+                                destdir = os.path.dirname(path).replace(prefix, _backupdir)
+                                os.makedirs(destdir, exist_ok=True)
+                                if path.startswith(prefix) and (os.path.isfile(path) and os.path.isdir(destdir)):
+                                    logging.info(f"restore current module file {path}\n               moving it to backup dir {destdir}!")
+                                    shutil.move(path, destdir)
                     except EnvironmentError:
                         logging.error("Unable to move previously installed directory")
                     else:
-                        logging.info(f"moving temporary restore directory {_installpath}\nto {installpath}!")
                         try:
+                            logging.info(f"restore temporary directory {_installpath}\n               to {installpath}!")
                             shutil.move(_installpath, installpath)
+                            for _path in _modulepath:
+                                if _path.startswith(_prefix) and (os.path.isfile(_path) or os.path.islink(_path)):
+                                    path = _path.replace(_prefix, prefix)
+                                    logging.info(f"restore temporary module file {_path}\n               moving it to {path}!")
+                                    shutil.move(_path, path)
                         except EnvironmentError:
                             logging.error(f"Fail to move temporary installed directory to target one!")
                         else:
@@ -746,7 +770,6 @@ def main():
     force = dargs['--force']
     recurse = dargs['--yes-i-really-really-mean-it']
     width = int(dargs['--width'])
-    rebuild = dargs['--rebuild']
     only_dependencies = dargs['--only-dependencies']
     extension = dargs['--extension']
     compresslevel = int(dargs['--compresslevel'])
@@ -804,7 +827,6 @@ def main():
         prefix = '/software/shared/easybuild'
     prefix = get_from_config_or("easybuild", "prefix", default=prefix)
     # ensure prefix is real path to enforce security and safety!
-    prefix = os.path.realpath(prefix)
 
     # set default easybuild custom configs base directory
     # standfor for copy of easybuid config file from example repository:
@@ -893,13 +915,25 @@ EOF
     elif dargs['fetch']:
         fetch(software, basedir, checksums)
     elif dargs['install']:
-        install(software, prefix, basedir, rebuild, only_dependencies, force, recurse, checksums, skip, dargs['<name>=<value>'])
+        nocontainer = dargs['--no-container']
+        container = get_from_config_or("easybuild", "container", default=dargs['--container'])
+        if not nocontainer:
+            if container is None and not prefix == os.path.realpath(prefix):
+                # we try to find existent singularity image
+                clara_exit("you must provide singularity image using switch --container=<singularity image>!")
+            if container:
+                if not shutil.which('singularity'):
+                    clara_exit("can't found singularity binary :-(!")
+                elif not os.path.exists(container):
+                    clara_exit(f"singularity image {container} don't exist!")
+
+        install(software, prefix, basedir, force, only_dependencies, recurse, checksums, skip, dargs['<name>=<value>'], container)
     elif dargs['backup']:
         backup(software, prefix, backupdir, None, extension, compresslevel, dereference, force, recurse, suffix, elapse)
     elif dargs['restore']:
         restore(software, source, backupdir, prefix, extension, force, recurse, suffix, devel)
     elif dargs['delete']:
-        delete(software, prefix, force)
+        delete(software, os.path.realpath(prefix), force)
     elif dargs['hide']:
         hide(software, prefix, dargs['--clean'])
     elif dargs['default']:
