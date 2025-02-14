@@ -13,7 +13,7 @@ Prefix: %{_prefix}
 Vendor: EDF CCN HPC <dsp-cspito-ccn-hpc@edf.fr>
 Url: https://github.com/scibian/%{__name}
 
-BuildRequires: git python3 python3-setuptools pandoc texlive-latex texlive-collection-fontsrecommended
+BuildRequires: make git python3 python3-setuptools pandoc texlive-latex texlive-collection-fontsrecommended
 Requires: clara-core clara-plugin-chroot clara-plugin-enc
 Requires: clara-plugin-images clara-plugin-ipmi clara-plugin-p2p
 Requires: clara-plugin-show clara-plugin-repo clara-plugin-slurm
@@ -202,8 +202,7 @@ Clara is a set of tools to help administering and installing clusters.
 %{python3_sitelib}/clara/plugins/__init__.py
 %{python3_sitelib}/*.egg-info
 %{python3_sitelib}/clara/__pycache__/*.pyc
-%{python3_sitelib}/clara/plugins/__pycache__/__init__.cpython-36.pyc
-%{python3_sitelib}/clara/plugins/__pycache__/__init__.cpython-36.opt-1.pyc
+%{python3_sitelib}/clara/plugins/__pycache__/__init__.cpython*
 
 # plugin-build
 %files plugin-build
