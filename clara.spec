@@ -4,7 +4,7 @@
 # Main preamble
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
-Version: 0.20250214
+Version: 0.20250305
 Release:  1%{?dist}.edf
 Source0: %{name}-%{version}.tar.gz
 License: GPLv3
@@ -14,12 +14,17 @@ Vendor: EDF CCN HPC <dsp-cspito-ccn-hpc@edf.fr>
 Url: https://github.com/scibian/%{__name}
 
 BuildRequires: make git python3 python3-setuptools pandoc texlive-latex texlive-collection-fontsrecommended python3-rpm-macros
-Requires: clara-core clara-plugin-chroot clara-plugin-enc
-Requires: clara-plugin-images clara-plugin-ipmi clara-plugin-p2p
-Requires: clara-plugin-show clara-plugin-repo clara-plugin-slurm
-Requires: clara-plugin-virt
-Requires: clara-plugin-redfish
+Requires: clara-core
+Requires: clara-plugin-chroot
 Requires: clara-plugin-easybuild
+Requires: clara-plugin-enc
+Requires: clara-plugin-images
+Requires: clara-plugin-ipmi
+Requires: clara-plugin-redfish
+Requires: clara-plugin-repo
+Requires: clara-plugin-show
+Requires: clara-plugin-slurm
+Requires: clara-plugin-virt
 
 %description
 This is a meta-package that provides Clara software.
@@ -293,6 +298,10 @@ Clara is a set of tools to help administering and installing clusters.
 
 
 %changelog
+* Thu Mar 06 2025 Thomas HAMEL <thomas-t.hamel@edf.fr> - 0.20250305-1.edf
+- New release 0.20250305 to fix
+- break hard requirement on p2p plugin
+
 * Fri Feb 14 2025 Mathieu Chouquet-Stringer <mathieu-externe.chouquet-stringer@edf.fr> - 0.20250214-1.edf
 - New release 0.20250214 for el9
 
