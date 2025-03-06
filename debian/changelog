@@ -1,3 +1,9 @@
+clara (0.20250305-sci10u1) scibian10; urgency=medium
+
+  * New upstream version 0.20250305
+
+ -- Thomas HAMEL <thomas-t.hamel@edf.fr>  Thu, 06 Mar 2025 14:18:12 +0100
+
 clara (0.20241219-0sci10u1) scibian10; urgency=medium
 
   * New upstream version 0.20241219
