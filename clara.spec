@@ -20,6 +20,7 @@ Requires: clara-plugin-easybuild
 Requires: clara-plugin-enc
 Requires: clara-plugin-images
 Requires: clara-plugin-ipmi
+Requires: clara-plugin-p2p
 Requires: clara-plugin-redfish
 Requires: clara-plugin-repo
 Requires: clara-plugin-show
@@ -300,7 +301,6 @@ Clara is a set of tools to help administering and installing clusters.
 %changelog
 * Thu Mar 06 2025 Thomas HAMEL <thomas-t.hamel@edf.fr> - 0.20250305-1.edf
 - New release 0.20250305 to fix
-- break hard requirement on p2p plugin
 
 * Fri Feb 14 2025 Mathieu Chouquet-Stringer <mathieu-externe.chouquet-stringer@edf.fr> - 0.20250214-1.edf
 - New release 0.20250214 for el9
