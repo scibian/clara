@@ -4,7 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [0.20250506] - 2025-05-06
+
+### Fixed
+images: override TMPDIR so dracut won't die
+
+### Added
+images: dnf can now bootstrap using a proxy
+
+## [0.20250305] - 2025-03-24
+
+### Fixed
+virt: default in template def
+virt: warning for using "is"
+
+### Added
+virt: support for hostdev ethernet
 
 ## [0.20250305] - 2025-03-05
 
