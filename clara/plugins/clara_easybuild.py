@@ -52,7 +52,8 @@ Options:
     <software>                       software name, either like <name>-<version> or <name>/<version>
     --eb=<ebpath>                    easybuild binary path
     --basedir=<basedir>              easybuild custom repository directory
-    --prefix=<prefix>                easybuild installation prefix directory
+    --prefix=<prefix>                easybuild installation prefix directory [default: /software/shared/easybuild]
+    --buildpath=<buildpath>          easybuild build path [default: <prefix>/build]
     --extension=<extension>          tar backup extension, like bz2, gz or xz [default: gz]
     --compresslevel=<compresslevel>  tar compression gz level, with max 9 [default: 6]
     --dereference                    add symbolic and hard links to the tar archive. Default: False
@@ -157,7 +158,7 @@ def module_avail(name, prefix, rebuild=False):
     if rebuild:
         return name, None, 0
 
-    output, error = module(f"--show_hidden avail {name}")
+    output, error = module('--show_hidden', 'avail', name)
 
     if isinstance(error, int) and not error == 0:
         logging.warn(f"fail to get avail modules of software {name} :-( !")
@@ -168,7 +169,7 @@ def module_avail(name, prefix, rebuild=False):
     # support also hidden module!
         _name = "/".join([re.sub(r"^(\d+\.)", r".\1", x) for x in name.split("/")])
         logging.debug(f"search hidden module {_name}")
-        output, error = module(f"--show_hidden avail {_name}")
+        output, error = module('--show_hidden', 'avail', _name)
 
     match = re.search(rf"{_name}[^\n ]*", error)
     name = match.group() if match else name
@@ -179,7 +180,7 @@ def default(software, prefix):
 
     name, match, output = module_avail(software, prefix)
     if match:
-        output, error = module(f"show {name}")
+        output, error = module('show', name)
         if error == 1:
             clara_exit(f"Either software {name} is not installed nor is hide! PLS, install or unhide it first!")
         pattern = re.compile(r' [/fs]?[\w]*(/.*\.lua):', re.DOTALL)
@@ -225,7 +226,7 @@ def hide(software, prefix, clean):
 
     name, match, output = module_avail(software, prefix)
     if match:
-        output, error = module(f"show {name}")
+        output, error = module('show', name)
         if error == 1:
             clara_exit(f"Either software {name} is not installed nor is hide! PLS, install or unhide it first!")
         pattern = re.compile(r' [/fs]?[\w]*(/.*\.lua):', re.DOTALL)
@@ -397,7 +398,7 @@ def fetch(software, basedir, checksums):
         logging.debug(f"output:\n{output}")
         return output
 
-def install(software, prefix, basedir, rebuild, only_dependencies, recurse, checksums, skip, options, container):
+def install(software, prefix, basedir, buildpath, rebuild, only_dependencies, recurse, checksums, skip, options, container):
     # suppress, if need, ".eb" suffix
     name, match, _ = module_avail(software, prefix, rebuild=rebuild)
     if re.search(r"/|-", name) is None:
@@ -425,7 +426,7 @@ def install(software, prefix, basedir, rebuild, only_dependencies, recurse, chec
     _dry_run = '--dry-run' if dry_run and not checksums else ''
     if not only_dependencies:
         cmd = [eb ,'--robot', basedir, _dry_run, '--hook', f'{basedir}/pre_fetch_hook.py', _software]
-        cmd += ['--buildpath', f"{prefix}/build", '--installpath', prefix, '--prefix', prefix]
+        cmd += ['--buildpath', buildpath, '--installpath', prefix, '--prefix', prefix]
         cmd += ['--containerpath', f"{prefix}/containers", '--packagepath', f"{prefix}/packages"]
         cmd += [_software]
         if rebuild:
@@ -451,7 +452,7 @@ def install(software, prefix, basedir, rebuild, only_dependencies, recurse, chec
     if len(dependencies):
         logging.info(f"\nsoftware {name} need following dependencies:\n{dependencies}")
         if not dry_run:
-            output, error = module(f"show {name}")
+            output, error = module('show', name)
             if error == 1:
                 logging.debug(f"Either software {name} is not installed nor is hide! PLS, install or unhide it first!")
             else:
@@ -475,7 +476,7 @@ def module_versions(name, prefix):
     if not match:
         clara_exit(f"no module named {name} under prefix {prefix}!")
 
-    output, error = module(f"--show_hidden spider {_name}")
+    output, error = module('--show_hidden', 'spider', _name)
 
     pattern = re.compile(r': module load (.*)\n\n|Versions:\n(.*)\n\n-', re.DOTALL)
     match = pattern.findall(error)
@@ -523,7 +524,7 @@ def backup(software, prefix, backupdir, versions, extension, compresslevel, dere
         clara_exit(f"No software {_software} installed! PLS, build it first!")
     elif len(versions) == 1:
         logging.info(f"working on software {versions[0]}")
-        output, error = module(f"show {_software}")
+        output, error = module('show', _software)
         if error == 1:
             clara_exit(f"No software {_software} installed! PLS, install it first!")
         pattern = re.compile(r' (.*\.lua):| [/fs]?[\w]*(/.*\.lua):|EBROOT[^,]*,"([^"]*)"', re.DOTALL)
@@ -586,7 +587,7 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
                 _module_ = "/".join([re.sub(r"^\.","",x) for x in _list[::len(_list)-1]])
             else:
                 _module_ = "/".join([re.sub(r"^\.","",x) for x in _list])
-            version = re.search(r"([\d\.\-\_]+)", _module_.split("/")[-1]).group(1)
+            version = re.search(r"([a-zA-Z0-9\.\-\_]+)", _module_.split("/")[-1]).group(1)
             basepath = "".join([member.name for member in members
                        if os.path.normpath(member.name).lower().endswith(version)
                        or member.name.endswith(version)])
@@ -594,7 +595,7 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
             installpath = f"{prefix}/{basepath}"
             if basepath == '':
                 message = f"Can't find module {_module_} in tarball {tarball}\n"
-                message += f"archive have a base path {basepath}"
+                message += f"archive base path: '{basepath}'"
                 clara_exit(message)
 
             if os.path.isdir(installpath):
@@ -716,7 +717,7 @@ def delete(software, prefix, force):
     if len(versions) == 0:
         clara_exit(f"No software {_software} installed!")
     elif len(versions) == 1:
-        output, error = module(f"show {_software}")
+        output, error = module('show', _software)
         if error == 1:
             clara_exit(f"Either software {_software} is not installed nor is hide! PLS, install or unhide it first!")
         pattern = re.compile(r' (.*\.lua):| [/fs]?[\w]*(/.*\.lua):|EBROOT[^,]*,"([^"]*)"', re.DOTALL)
@@ -828,6 +829,12 @@ def main():
     prefix = get_from_config_or("easybuild", "prefix", default=prefix)
     # ensure prefix is real path to enforce security and safety!
 
+    buildpath = dargs['--buildpath']
+    if buildpath is None:
+        buildpath = "%s/build" % prefix
+    buildpath= get_from_config_or("easybuild", "buildpath", default=buildpath)
+
+
     # set default easybuild custom configs base directory
     # standfor for copy of easybuid config file from example repository:
     # https://github.com/easybuilders/easybuild-easyconfigs
@@ -858,15 +865,17 @@ def main():
                 else:
                     clara_exit("You must create it manually!")
         else:
-            message = f"""\nyou must use either switch --basedir nor config file
-Indeed, either base directory {basedir} (custom git clone of easybuild configs)
+            message = f"""basedir {basedir} is not a valid directory
+It can be customized using either --basedir or config file, it should point
+to easyconfigs from a custom repository or from the easybuild install.
+
 It's recommended to create your own config file with:
 basedir=<your base dir here>
 cat <<EOF> {config}
 [easybuild]
 basedir=$basedir
 EOF
-{config} it's the default config file. So no need to use --config!
+{config} is the default config file. So no need to use --config!
                       """
             clara_exit(message)
 
@@ -927,7 +936,7 @@ EOF
                 elif not os.path.exists(container):
                     clara_exit(f"singularity image {container} don't exist!")
 
-        install(software, prefix, basedir, force, only_dependencies, recurse, checksums, skip, dargs['<name>=<value>'], container)
+        install(software, prefix, basedir, buildpath, force, only_dependencies, recurse, checksums, skip, dargs['<name>=<value>'], container)
     elif dargs['backup']:
         backup(software, prefix, backupdir, None, extension, compresslevel, dereference, force, recurse, suffix, elapse)
     elif dargs['restore']:
