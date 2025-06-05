@@ -4,7 +4,7 @@
 # Main preamble
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
-Version: 0.20250506
+Version: 0.20250605
 Release: 2%{?dist}.edf
 Source0: %{name}-%{version}.tar.gz
 License: GPLv3
@@ -299,6 +299,9 @@ Clara is a set of tools to help administering and installing clusters.
 
 
 %changelog
+* Thu Jun 05 2025 Maria Hamech <maria-externe.hamech@edf.fr> - 0.20250605-1.edf
+- New release 0.20250605-1 to fix
+
 * Tue May 06 2025 Mathieu Chouquet-Stringer <mathieu-externe.chouquet-stringer@edf.fr> - 0.20250506-2.edf
 - New release 0.20250506-2
 - Allow to use proxy with all dnf repos
