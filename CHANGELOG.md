@@ -4,7 +4,47 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [0.20250605] - 2025-06-05
+
+### Fixed
+plugin ipmi: fix IMMUSER bug in clara ipmi
+
+## [0.20250527] - 2025-05-27
+
+### Fixed
+easybuild: Fix syntax for python from el9
+easybuild: Clearer error message
+utils: Fix log file on homedir
+
+### Added
+easybuild: Support for buildpath during install
+
+
+## [0.20250506] - 2025-05-06
+
+### Fixed
+images: override TMPDIR so dracut won't die
+images: make repo name more readable
+
+### Added
+images: dnf can now bootstrap using a proxy
+
+## [0.20250305] - 2025-03-24
+
+### Fixed
+virt: default in template def
+virt: warning for using "is"
+
+### Added
+virt: support for hostdev ethernet
+
+## [0.20250305] - 2025-03-05
+
+### Fixed
+utils: Fix Scibian9 support
+
+### Added
+utils: EL9 support
 
 ## [0.20241219] - 2024-12-19
 
