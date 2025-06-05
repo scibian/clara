@@ -1,3 +1,22 @@
+clara (0.20250605-0sci9u1) scibian9; urgency=medium
+
+  [ Thomas HAMEL ]
+  * New upstream version 0.20250305
+  * New upstream version 0.20250324
+
+  [ Mathieu Chouquet-Stringer ]
+  * New upstream version 0.20250506
+  * New upstream version 0.20250506
+  * New upstream version 0.20250506
+
+  [ Thomas HAMEL ]
+  * New upstream version 0.20250527
+
+  [ Maria HAMECH ]
+  * New upstream version 0.20250605
+
+ -- Maria HAMECH <maria-externe.hamech@edf.fr>  Thu, 05 Jun 2025 11:10:01 +0200
+
 clara (0.20241219-0sci9u1) scibian9; urgency=medium
 
   * New upstream version 0.20241219
