@@ -87,7 +87,7 @@ try:
     import docopt
 except ModuleNotFoundError:
     module = docopt
-    logging.error("PLS raise 'pip install %s' or install 'python3-%s' software!" % (module,module))
+    logging.error("Missing Dependency: run 'pip install %s' or install 'python3-%s' package." % (module,module))
 
 from clara.utils import clara_exit, run, get_from_config_or, conf, module, yes_or_no, do_print
 
@@ -98,7 +98,7 @@ from datetime import datetime
 try:
     from prettytable import PrettyTable as prettytable
 except:
-    print("[WARN] PLS raise 'pip install prettytable' or install 'python3-prettytable' software!")
+    logging.warning("Missing Dependency: run 'pip install prettytable' or install 'python3-prettytable' package.")
     pass
 
 def copy(software, basedir, target):
@@ -161,17 +161,17 @@ def module_avail(name, prefix, rebuild=False):
     output, error = module('--show_hidden', 'avail', name)
 
     if isinstance(error, int) and not error == 0:
-        logging.warn(f"fail to get avail modules of software {name} :-( !")
+        logging.warning(f"fail to get avail modules of software {name} :-( !")
         return name, None, error
 
     _name = name
-    if not re.search(name, error) and not re.search(r"\/\.", name):
+    if not re.search(re.escape(name), error) and not re.search(r"\/\.", name):
     # support also hidden module!
         _name = "/".join([re.sub(r"^(\d+\.)", r".\1", x) for x in name.split("/")])
         logging.debug(f"search hidden module {_name}")
         output, error = module('--show_hidden', 'avail', _name)
 
-    match = re.search(rf"{_name}[^\n ]*", error)
+    match = re.search(rf"{re.escape(_name)}[^\n ]*", error)
     name = match.group() if match else name
 
     return name, match, error
@@ -182,7 +182,7 @@ def default(software, prefix):
     if match:
         output, error = module('show', name)
         if error == 1:
-            clara_exit(f"Either software {name} is not installed nor is hide! PLS, install or unhide it first!")
+            clara_exit(f"Either software {name} is not installed nor is hidden. Install or unhide it first.")
         pattern = re.compile(r' [/fs]?[\w]*(/.*\.lua):', re.DOTALL)
         match = pattern.findall(error)
 
@@ -218,9 +218,7 @@ def hide(software, prefix, clean):
         from packaging.version import Version
     except ModuleNotFoundError:
         _module = "packaging"
-        logging.error("PLS raise 'pip install %s' or install 'python3-%s' software!" % (_module, _module))
-
-        clara_exit("PLS, install package python3-packaging")
+        clara_exit("Missing Dependency: run 'pip install %s' or install 'python3-%s' package." % (_module, _module))
     if Version(match.group(1)) < Version("8.7.53"):
         clara_exit("Advanced module hidden need Lmod version greater than 8.7.53. Try \"module load Lmod\"!")
 
@@ -228,7 +226,7 @@ def hide(software, prefix, clean):
     if match:
         output, error = module('show', name)
         if error == 1:
-            clara_exit(f"Either software {name} is not installed nor is hide! PLS, install or unhide it first!")
+            clara_exit(f"Either software {name} is not installed or is hidden. Install or unhide it first.")
         pattern = re.compile(r' [/fs]?[\w]*(/.*\.lua):', re.DOTALL)
         match = pattern.findall(error)
 
@@ -358,6 +356,7 @@ def get_dependencies(software, prefix, basedir, rebuild):
 
     output, retcode = run(' '.join(cmd), shell=True, exit_on_error=False)
     if isinstance(retcode, int) and not retcode == 0:
+        logging.error(output)
         clara_exit(f"fail to get dependencies of software {software} :-( !")
     else:
         logging.debug(output)
@@ -478,7 +477,7 @@ def module_versions(name, prefix):
 
     output, error = module('--show_hidden', 'spider', _name)
 
-    pattern = re.compile(r': module load (.*)\n\n|Versions:\n(.*)\n\n-', re.DOTALL)
+    pattern = re.compile(r': module load (.*?)\n\n|Versions:\n(.*)\n\n-', re.DOTALL)
     match = pattern.findall(error)
 
     if match:
@@ -566,9 +565,9 @@ def replace_in_file(name, source, prefix):
         f.write(data)
 
 def restore(software, source, backupdir, prefix, extension, force, recurse, suffix, devel):
-    _module = re.sub(r"([^-\/]+)[-\/](\.)?(.*)(\.eb)?", r"\1/\2\3", software)
-    if re.search(r"/|-", _module) is None:
-        clara_exit(f"Bad software name: {_module}. PLS software must follow scheme <name>/<version>")
+    _module = software
+    if re.search(r"/", _module) is None:
+        clara_exit(f"Bad software name: {_module}. software must follow scheme <name>/<version>")
     _software = software.replace("/","-")
     packages_dir = f"{backupdir}/packages"
     tarball = get_tarball(packages_dir, _software, extension, suffix)
@@ -646,7 +645,7 @@ def restore(software, source, backupdir, prefix, extension, force, recurse, suff
                             os.chmod(_name, member.mode)
                         replace_in_file(_name, source, prefix)
                 elif not f"{version}/easybuild" in member.name or devel:
-                    tf.extract(member, _prefix, set_attrs=False)
+                    tf.extract(member, _prefix, set_attrs=False, filter='fully_trusted')
                     if not os.path.islink(_name):
                         os.chmod(_name, member.mode)
 

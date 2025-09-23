@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+## [0.20250923] - 2025-09-23
+
+### Fixed
+easybuild: fix restore of easybuild modules files
+easybuild: Handle regexp chars in module names
+
+## [0.20250829] - 2025-08-29
+
+### Fixed
+easybuild: improve logging and error reporting
+easybuild: Handle package with extensions
+easybuild: Set extract to fully_trusted
+
 ## [0.20250605] - 2025-06-05
 
 ### Fixed
