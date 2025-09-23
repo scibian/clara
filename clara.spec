@@ -4,7 +4,7 @@
 # Main preamble
 Summary: Clara, a set of Cluster Administration Tools
 Name: clara
-Version: 0.20250829
+Version: 0.20250923
 Release: 1%{?dist}.edf
 Source0: %{name}-%{version}.tar.gz
 License: GPLv3
@@ -298,6 +298,9 @@ Clara is a set of tools to help administering and installing clusters.
 
 
 %changelog
+* Tue Sep 23 2025 Thomas HAMEL <thomas-t.hamel@edf.fr> - 0.20250923-1.edf
+- New release 0.20250923 to fix various bugs in easybuild plugin
+
 * Fri Aug 29 2025 Thomas HAMEL <thomas-t.hamel@edf.fr> - 0.20250829-1.edf
 - New release 0.20250829 to fix various bugs in easybuild plugin
 
