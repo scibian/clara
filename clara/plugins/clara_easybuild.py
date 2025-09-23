@@ -165,13 +165,13 @@ def module_avail(name, prefix, rebuild=False):
         return name, None, error
 
     _name = name
-    if not re.search(name, error) and not re.search(r"\/\.", name):
+    if not re.search(re.escape(name), error) and not re.search(r"\/\.", name):
     # support also hidden module!
         _name = "/".join([re.sub(r"^(\d+\.)", r".\1", x) for x in name.split("/")])
         logging.debug(f"search hidden module {_name}")
         output, error = module('--show_hidden', 'avail', _name)
 
-    match = re.search(rf"{_name}[^\n ]*", error)
+    match = re.search(rf"{re.escape(_name)}[^\n ]*", error)
     name = match.group() if match else name
 
     return name, match, error
@@ -565,9 +565,9 @@ def replace_in_file(name, source, prefix):
         f.write(data)
 
 def restore(software, source, backupdir, prefix, extension, force, recurse, suffix, devel):
-    _module = re.sub(r"([^-\/]+)[-\/](\.)?(.*)(\.eb)?", r"\1/\2\3", software)
-    if re.search(r"/|-", _module) is None:
-        clara_exit(f"Bad software name: {_module}. PLS software must follow scheme <name>/<version>")
+    _module = software
+    if re.search(r"/", _module) is None:
+        clara_exit(f"Bad software name: {_module}. software must follow scheme <name>/<version>")
     _software = software.replace("/","-")
     packages_dir = f"{backupdir}/packages"
     tarball = get_tarball(packages_dir, _software, extension, suffix)
